@@ -1,292 +1,228 @@
-# Historian Reports Application - Windows Installation Guide
+# Windows Installation Guide for Historian Reports
+
+## Table of Contents
+1. [System Requirements](#system-requirements)
+2. [Installation Methods](#installation-methods)
+3. [Manual Installation](#manual-installation)
+4. [Automated Installation](#automated-installation)
+5. [Windows Service Installation](#windows-service-installation)
+6. [Configuration](#configuration)
+7. [Starting the Application](#starting-the-application)
+8. [Troubleshooting](#troubleshooting)
 
 ## System Requirements
 
 ### Minimum Requirements
-- **OS**: Windows 10 or Windows Server 2016+
+- **OS**: Windows 10, Windows 11, or Windows Server 2016/2019/2022
 - **RAM**: 4 GB (8 GB recommended)
 - **Disk Space**: 2 GB for application + database storage
-- **Network**: Internet connection for initial setup
+- **Network**: Internet connection for initial setup and updates
 
 ### Required Software
-- **Node.js**: v16.0.0 or higher (LTS recommended)
-- **npm**: v7.0.0 or higher (comes with Node.js)
-- **SQL Server**: 2016 or higher (for AVEVA Historian database)
-- **Git**: Optional (for cloning repository)
+- **Node.js**: v18.0.0 or higher (LTS recommended)
+- **npm**: v8.0.0 or higher (comes with Node.js)
+- **SQL Server**: 2016 or higher (for AVEVA Historian database connectivity)
 
-## Pre-Installation Steps
+## Installation Methods
 
-### 1. Install Node.js
+There are three ways to install Historian Reports on Windows:
 
-1. Download Node.js LTS from https://nodejs.org/
-2. Run the installer (.msi file)
-3. Follow the installation wizard:
-   - Accept the license agreement
-   - Choose installation directory (default: `C:\Program Files\nodejs`)
-   - Select "npm package manager" (should be checked by default)
-   - Click "Install"
-4. Verify installation by opening Command Prompt and running:
+1. **NSIS Installer** (Recommended) - Complete GUI installer with all options
+2. **PowerShell Script** - Automated installation with more control
+3. **Manual Installation** - Step-by-step installation for advanced users
+
+## Manual Installation
+
+### Step 1: Install Prerequisites
+
+1. Download and install Node.js (v18.0.0 or higher) from https://nodejs.org/
+2. Verify installation:
    ```cmd
    node --version
    npm --version
    ```
 
-### 2. Install Git (Optional but Recommended)
+### Step 2: Obtain Application Files
 
-1. Download Git from https://git-scm.com/download/win
-2. Run the installer
-3. Follow the installation wizard with default settings
-4. Verify installation:
+1. Download the latest release from the releases page
+2. Extract to your desired installation directory (e.g., `C:\Program Files\HistorianReports`)
+
+### Step 3: Install Dependencies
+
+1. Open Command Prompt as Administrator
+2. Navigate to the installation directory:
    ```cmd
-   git --version
+   cd "C:\Program Files\HistorianReports"
+   ```
+3. Install Node.js dependencies:
+   ```cmd
+   npm install --production
    ```
 
-### 3. Prepare Database Connection
+### Step 4: Create Configuration
 
-Ensure you have:
-- SQL Server instance running and accessible
-- Database credentials (username/password)
-- Database name for Historian data
-- Server hostname or IP address
-- Port number (default: 1433)
-
-## Installation Steps
-
-### Option A: Using Git (Recommended)
-
-1. Open Command Prompt or PowerShell
-2. Navigate to desired installation directory:
-   ```cmd
-   cd C:\Users\YourUsername\Documents
-   ```
-3. Clone the repository:
-   ```cmd
-   git clone https://github.com/your-org/historian-reports.git
-   cd historian-reports
-   ```
-4. Continue with "Common Installation Steps" below
-
-### Option B: Using ZIP File
-
-1. Download the application ZIP file
-2. Extract to desired location (e.g., `C:\Applications\historian-reports`)
-3. Open Command Prompt and navigate to the extracted folder:
-   ```cmd
-   cd C:\Applications\historian-reports
-   ```
-4. Continue with "Common Installation Steps" below
-
-### Common Installation Steps
-
-1. **Install Dependencies**
-   ```cmd
-   npm install
-   ```
-   This installs all required Node.js packages (may take 5-10 minutes)
-
-2. **Install Client Dependencies**
-   ```cmd
-   cd client
-   npm install
-   cd ..
-   ```
-
-3. **Create Environment Configuration**
-   
-   Copy the example environment file:
+1. Copy the example environment file:
    ```cmd
    copy .env.example .env
    ```
-   
-   Edit `.env` file with your configuration:
-   ```
-   # Database Configuration
-   DB_HOST=your-sql-server-hostname
-   DB_PORT=1433
-   DB_NAME=HistorianDatabase
-   DB_USER=your-username
-   DB_PASSWORD=your-password
-   DB_ENCRYPT=true
-   DB_TRUST_SERVER_CERTIFICATE=false
+2. Edit `.env` with your database and application settings
 
-   # Application Configuration
-   NODE_ENV=production
-   PORT=3000
-   JWT_SECRET=your-secure-random-string-min-32-characters
-   BCRYPT_ROUNDS=12
-
-   # Email Configuration (for report delivery)
-   SMTP_HOST=your-smtp-server
-   SMTP_PORT=587
-   SMTP_SECURE=true
-   SMTP_USER=your-email@company.com
-   SMTP_PASSWORD=your-email-password
-
-   # Report Configuration
-   REPORTS_DIR=./reports
-   TEMP_DIR=./temp
-   MAX_REPORT_SIZE_MB=50
-
-   # Logging
-   LOG_LEVEL=info
-   LOG_FILE=./logs/app.log
-   LOG_MAX_SIZE=10m
-   LOG_MAX_FILES=5
-   ```
-
-4. **Create Required Directories**
-   ```cmd
-   mkdir reports
-   mkdir logs
-   mkdir temp
-   mkdir data
-   ```
-
-5. **Initialize Database**
-   ```cmd
-   npm run setup:db
-   ```
-
-6. **Build the Application**
-   ```cmd
-   npm run build
-   npm run build:client
-   ```
-
-## Running the Application
-
-### Development Mode
-
-1. Open Command Prompt in the application directory
-2. Start the development server:
-   ```cmd
-   npm run dev
-   ```
-3. In another Command Prompt window, start the frontend:
-   ```cmd
-   cd client
-   npm start
-   ```
-4. Access the application at `http://localhost:3000`
-
-### Production Mode
-
-1. Build the application (if not already done):
-   ```cmd
-   npm run build:all
-   ```
-
-2. Start the production server:
-   ```cmd
-   npm start
-   ```
-
-3. Access the application at `http://localhost:3000` (or configured port)
-
-## Windows Service Installation (Optional)
-
-To run the application as a Windows Service:
-
-### Using NSSM (Node Simple Service Manager)
-
-1. Download NSSM from https://nssm.cc/download
-2. Extract to a folder (e.g., `C:\nssm`)
-3. Open Command Prompt as Administrator
-4. Navigate to NSSM folder:
-   ```cmd
-   cd C:\nssm\win64
-   ```
-5. Install the service:
-   ```cmd
-   nssm install HistorianReports "C:\Program Files\nodejs\node.exe" "C:\path\to\app\server.js"
-   ```
-6. Configure service startup:
-   ```cmd
-   nssm set HistorianReports AppDirectory C:\path\to\app
-   nssm set HistorianReports AppEnvironmentExtra NODE_ENV=production
-   nssm set HistorianReports Start SERVICE_AUTO_START
-   ```
-7. Start the service:
-   ```cmd
-   nssm start HistorianReports
-   ```
-
-### Verify Service Installation
-
-1. Open Services (services.msc)
-2. Look for "HistorianReports" in the list
-3. Verify status is "Running"
-
-## Docker Installation (Alternative)
-
-If you prefer containerized deployment:
-
-1. Install Docker Desktop from https://www.docker.com/products/docker-desktop
-2. Build the Docker image:
-   ```cmd
-   docker build -t historian-reports .
-   ```
-3. Run the container:
-   ```cmd
-   docker run -p 3000:3000 --env-file .env historian-reports
-   ```
-
-## Post-Installation Configuration
-
-### 1. Create Initial User
+### Step 5: Create Required Directories
 
 ```cmd
-npm run seed:users
+mkdir reports
+mkdir logs
+mkdir temp
+mkdir data
 ```
 
-This creates a default admin user:
-- Username: `admin`
-- Password: `admin123` (change immediately)
+## Automated Installation
 
-### 2. Configure Database Connection
+### Using the NSIS Installer
 
-1. Access the application at `http://localhost:3000`
-2. Log in with admin credentials
-3. Navigate to Settings → Database Configuration
-4. Test the connection
-5. Save configuration
+1. Run the `HistorianReports-X.X.X-Setup.exe` installer as Administrator
+2. Follow the installation wizard:
+   - Accept the license agreement
+   - Choose installation directory
+   - Select components to install (application, service, database initialization)
+   - Complete the installation
 
-### 3. Set Up Email (Optional)
+### Using the PowerShell Script
 
-1. Go to Settings → Email Configuration
-2. Enter SMTP server details
-3. Test email delivery
-4. Save configuration
+1. Open PowerShell as Administrator
+2. Navigate to the application directory
+3. Run the installation script:
+   ```powershell
+   .\Install-HistorianReports.ps1 -InstallPath "C:\Program Files\HistorianReports" -InstallAsService
+   ```
 
-### 4. Configure Report Settings
+## Windows Service Installation
 
-1. Go to Settings → Report Configuration
-2. Set report directory path
-3. Configure chart dimensions
-4. Set maximum report size
-5. Save configuration
+### Prerequisites for Service Installation
+
+- NSSM (Non-Sucking Service Manager) - included in automated installations
+- Administrator privileges
+
+### Installing as a Windows Service
+
+1. **Using the NSIS installer**: Select the "Install as Windows Service" option during installation
+
+2. **Using the batch script**:
+   - Run `windows-service-install.bat` as Administrator
+   - The script will download NSSM if not present and install the service
+
+3. **Manual installation with NSSM**:
+   - Download NSSM from https://nssm.cc/download
+   - Extract and copy `nssm.exe` to the application directory
+   - Run the following command as Administrator:
+   ```cmd
+   nssm install "HistorianReports" "C:\Program Files\HistorianReports\node.exe" "C:\Program Files\HistorianReports\dist\server.js"
+   nssm set "HistorianReports" Description "Historian Reports Application Service"
+   nssm set "HistorianReports" Start SERVICE_AUTO_START
+   nssm set "HistorianReports" AppDirectory "C:\Program Files\HistorianReports"
+   nssm set "HistorianReports" AppParameters "--env-file=C:\Program Files\HistorianReports\.env"
+   nssm start "HistorianReports"
+   ```
+
+### Managing the Windows Service
+
+- Start: `nssm start HistorianReports`
+- Stop: `nssm stop HistorianReports`
+- Restart: `nssm restart HistorianReports`
+- Remove: `nssm remove HistorianReports`
+
+## Configuration
+
+### Environment Variables
+
+Edit the `.env` file in the installation directory with the following settings:
+
+```
+# Database Configuration
+DB_HOST=your-sql-server-hostname
+DB_PORT=1433
+DB_NAME=HistorianDatabase
+DB_USER=your-username
+DB_PASSWORD=your-password
+DB_ENCRYPT=true
+DB_TRUST_SERVER_CERTIFICATE=false
+
+# Application Configuration
+NODE_ENV=production
+PORT=3000
+JWT_SECRET=your-secure-random-string-min-32-characters
+BCRYPT_ROUNDS=12
+
+# Email Configuration (for report delivery)
+SMTP_HOST=your-smtp-server
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@company.com
+SMTP_PASSWORD=your-email-password
+
+# Report Configuration
+REPORTS_DIR=./reports
+TEMP_DIR=./temp
+MAX_REPORT_SIZE_MB=50
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=./logs/app.log
+LOG_MAX_SIZE=10m
+LOG_MAX_FILES=5
+```
+
+### Validating Configuration
+
+Run the validation script to check your configuration:
+```cmd
+validate-configuration.bat
+```
+
+## Starting the Application
+
+### As a Windows Service (Recommended for Production)
+
+The application will start automatically when the system boots if installed as a service.
+
+### Manually
+
+1. Open Command Prompt or PowerShell
+2. Navigate to the installation directory
+3. Start the application:
+   ```cmd
+   node dist\server.js
+   ```
+
+### Using PM2 (Alternative)
+
+For process management, you can use PM2:
+```cmd
+npm install -g pm2
+pm2 start dist/server.js --name "HistorianReports"
+pm2 startup
+pm2 save
+```
 
 ## Troubleshooting
 
-### Port Already in Use
+### Common Issues
 
-If port 3000 is already in use:
+#### Port Already in Use
+- Check if the port is already in use:
+  ```cmd
+  netstat -ano | findstr :3000
+  ```
+- Kill the process using the port:
+  ```cmd
+  taskkill /PID <PID> /F
+  ```
+- Or change the port in `.env`:
+  ```
+  PORT=3001
+  ```
 
-1. Find the process using the port:
-   ```cmd
-   netstat -ano | findstr :3000
-   ```
-2. Kill the process:
-   ```cmd
-   taskkill /PID <PID> /F
-   ```
-3. Or change the port in `.env`:
-   ```
-   PORT=3001
-   ```
-
-### Database Connection Failed
-
+#### Database Connection Failed
 1. Verify SQL Server is running:
    ```cmd
    sqlcmd -S your-server-name -U your-username -P your-password
@@ -295,54 +231,65 @@ If port 3000 is already in use:
 3. Verify credentials in `.env` file
 4. Check SQL Server is configured for TCP/IP connections
 
-### npm install Fails
-
-1. Clear npm cache:
-   ```cmd
-   npm cache clean --force
-   ```
-2. Delete node_modules folder:
-   ```cmd
-   rmdir /s /q node_modules
-   ```
-3. Reinstall:
-   ```cmd
-   npm install
-   ```
-
-### Application Won't Start
-
-1. Check logs:
-   ```cmd
-   type logs\app.log
-   ```
+#### Application Won't Start
+1. Check logs in the `logs` directory
 2. Verify all environment variables are set correctly
 3. Check Node.js version compatibility:
    ```cmd
    node --version
    ```
-4. Try running in development mode for more detailed errors:
+4. Try running with more verbose output:
    ```cmd
-   npm run dev
+   node dist/server.js
    ```
 
-## Firewall Configuration
+#### Service Installation Issues
+- Ensure you're running the installation script as Administrator
+- Check that NSSM is properly installed
+- Verify the application directory path doesn't contain special characters
 
-### Allow Application Through Firewall
+### Service Management Commands
 
-1. Open Windows Defender Firewall
-2. Click "Allow an app through firewall"
-3. Click "Change settings"
-4. Click "Allow another app"
-5. Browse to Node.js executable: `C:\Program Files\nodejs\node.exe`
-6. Click "Add"
-7. Ensure both "Private" and "Public" are checked
+- View service status: `sc query HistorianReports`
+- Start service: `sc start HistorianReports`
+- Stop service: `sc stop HistorianReports`
+- View service logs: Check the `logs` directory in the application folder
+
+### Log Files Location
+
+- Application logs: `%INSTALL_DIR%\logs\app.log`
+- Error logs: `%INSTALL_DIR%\logs\error.log`
+- Report logs: `%INSTALL_DIR%\reports\` (contains generated reports)
+
+## Uninstalling
+
+### Via Control Panel
+1. Open "Add or Remove Programs"
+2. Find "Historian Reports" in the list
+3. Click "Uninstall"
+
+### Via Uninstaller
+Run the `Uninstall.exe` in the installation directory.
+
+### Manual Removal
+1. Stop and remove the Windows service (if installed)
+2. Delete the installation directory
+3. Remove registry entries (if any were created)
+
+## Updates
+
+To update the application:
+1. Stop the application/service
+2. Download the new version
+3. Replace files in the installation directory
+4. Run `npm install` to update dependencies
+5. Restart the application/service
 
 ## Security Recommendations
 
 1. **Change Default Credentials**
    - Change admin password immediately after first login
-   - Create individual user accounts
+   - Use strong passwords for database access
 
 2. **Enable HTTPS**
    - Generate SSL certificate
@@ -353,7 +300,7 @@ If port 3000 is already in use:
      ```
 
 3. **Secure Environment Variables**
-   - Never commit `.env` to version control
+   - Never share `.env` file
    - Use strong passwords (min 32 characters for JWT_SECRET)
    - Restrict file permissions on `.env`
 
@@ -367,129 +314,15 @@ If port 3000 is already in use:
    - Backup reports directory
    - Backup configuration files
 
-## Updating the Application
+## Support
 
-### From Git Repository
-
-1. Navigate to application directory
-2. Pull latest changes:
-   ```cmd
-   git pull origin main
-   ```
-3. Install any new dependencies:
-   ```cmd
-   npm install
-   ```
-4. Rebuild:
-   ```cmd
-   npm run build:all
-   ```
-5. Restart the application
-
-### Manual Update
-
-1. Download latest version
-2. Extract to temporary location
-3. Copy new files over existing installation
-4. Run `npm install` to update dependencies
-5. Restart the application
-
-## Performance Tuning
-
-### Increase Node.js Memory
-
-Edit the startup command to allocate more memory:
-
-```cmd
-node --max-old-space-size=4096 server.js
-```
-
-### Database Connection Pooling
-
-Configure in `.env`:
-
-```
-DB_POOL_MIN=2
-DB_POOL_MAX=10
-DB_TIMEOUT_MS=30000
-```
-
-### Enable Caching
-
-```
-CACHE_ENABLED=true
-REDIS_HOST=localhost
-REDIS_PORT=6379
-CACHE_TTL_SECONDS=300
-```
-
-## Monitoring and Maintenance
-
-### Check Application Status
-
-```cmd
-netstat -ano | findstr :3000
-```
-
-### View Logs
-
-```cmd
-type logs\app.log
-```
-
-### Monitor Performance
-
-1. Open Task Manager
-2. Look for Node.js process
-3. Monitor CPU and Memory usage
-
-### Regular Maintenance
-
-- Review logs weekly
-- Clean up old reports monthly
-- Update Node.js packages quarterly
-- Backup database daily
-
-## Support and Documentation
-
-- **Application Documentation**: See README.md
-- **API Documentation**: See API.md
-- **Configuration Guide**: See .env.example
-- **Troubleshooting**: See logs/app.log
-
-## Uninstallation
-
-### Remove Windows Service
-
-```cmd
-nssm remove HistorianReports confirm
-```
-
-### Remove Application
-
-1. Stop the application
-2. Delete the application directory
-3. Remove from Programs and Features (if installed as MSI)
-
-## Next Steps
-
-1. Access the application at `http://localhost:3000`
-2. Log in with admin credentials
-3. Configure database connection
-4. Set up email (optional)
-5. Create user accounts
-6. Configure report settings
-7. Start generating reports
-
-## Additional Resources
-
-- Node.js Documentation: https://nodejs.org/docs/
-- SQL Server Documentation: https://docs.microsoft.com/sql/
-- Express.js Guide: https://expressjs.com/
-- React Documentation: https://react.dev/
+For support, please check:
+- Application logs in the `logs` directory
+- Documentation in the `docs` directory
+- Contact the development team
 
 ---
 
-**Version**: 1.0  
+**Document Version**: 1.0  
 **Last Updated**: January 2026  
-**Compatibility**: Windows 10+, Windows Server 2016+
+**Compatible With**: Windows 10, Windows 11, Windows Server 2016/2019/2022
