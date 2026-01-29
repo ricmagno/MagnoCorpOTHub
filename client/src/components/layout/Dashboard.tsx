@@ -32,7 +32,8 @@ import { SchedulesList, SchedulesErrorBoundary } from '../schedules';
 import { UserManagement } from '../users';
 import { ConfigurationManagement } from '../configuration/ConfigurationManagement';
 import { AboutSection } from '../about/AboutSection';
-import { apiService, getAuthToken, setAuthToken } from '../../services/api';
+import { apiService } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../ui/ToastContainer';
 import { cn } from '../../utils/cn';
@@ -42,10 +43,9 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
+  const { user, isAuthenticated, login: authLogin, logout: authLogout, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'create' | 'reports' | 'schedules' | 'categories' | 'database' | 'status' | 'users' | 'configuration' | 'about'>('create');
   const [healthStatus, setHealthStatus] = useState<string>('checking...');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loginForm, setLoginForm] = useState({ username: 'admin', password: 'admin123' });
   const [loginLoading, setLoginLoading] = useState(false);
   const { toasts, removeToast, success, error: toastError, warning, info } = useToast();
@@ -172,24 +172,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Check if user is already authenticated
-  useEffect(() => {
-    const token = getAuthToken();
-    if (token) {
-      // Verify token is still valid
-      apiService.getCurrentUser()
-        .then(response => {
-          if (response.success) {
-            setIsAuthenticated(true);
-            setCurrentUser(response.data);
-          }
-        })
-        .catch(() => {
-          // Token is invalid, clear it
-          setAuthToken(null);
-        });
-    }
-  }, []);
+  // Use current user from auth hook
+  const currentUser = user;
 
   const handleLogin = async () => {
     if (!loginForm.username || !loginForm.password) {
@@ -199,18 +183,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
 
     try {
       setLoginLoading(true);
-      const response = await apiService.login({
-        username: loginForm.username,
-        password: loginForm.password
-      });
-
-      if (response.success && response.data) {
-        setIsAuthenticated(true);
-        setCurrentUser(response.data.user);
-        // Token is automatically set by apiService.login
-      } else {
-        alert('Login failed: ' + (response.data || 'Unknown error'));
-      }
+      await authLogin(loginForm.username, loginForm.password);
     } catch (error) {
       console.error('Login error:', error);
       alert('Login failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -221,14 +194,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
 
   const handleLogout = async () => {
     try {
-      await apiService.logout();
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      await authLogout();
     } catch (error) {
       console.error('Logout error:', error);
-      // Clear local state anyway
-      setIsAuthenticated(false);
-      setCurrentUser(null);
     }
   };
 
@@ -628,7 +596,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
       </nav>
 
       <main className="container mx-auto px-4 py-8">
-        {!isAuthenticated ? (
+        {authLoading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          </div>
+        ) : !isAuthenticated ? (
           <div className="max-w-md mx-auto mt-20">
             <Card>
               <CardHeader>

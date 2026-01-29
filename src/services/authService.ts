@@ -81,7 +81,9 @@ export class AuthService {
    * Initialize SQLite database for user and session storage
    */
   private async initializeDatabase(): Promise<void> {
-    const dbPath = path.join(process.cwd(), 'data', 'auth.db');
+    const dbPath = path.isAbsolute(env.DATA_DIR)
+      ? path.join(env.DATA_DIR, 'auth.db')
+      : path.join(process.cwd(), env.DATA_DIR, 'auth.db');
 
     // Ensure the data directory exists
     const dataDir = path.dirname(dbPath);

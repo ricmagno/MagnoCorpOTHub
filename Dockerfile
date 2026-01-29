@@ -89,9 +89,10 @@ EXPOSE 3000
 # Environment defaults
 ENV NODE_ENV=production \
     PORT=3000 \
-    REPORTS_DIR=/app/reports \
-    LOG_FILE=/app/logs/app.log \
-    TEMP_DIR=/app/temp
+    DATA_DIR=/home/historian/data \
+    REPORTS_DIR=/home/historian/reports \
+    LOG_FILE=/home/historian/logs/app.log \
+    TEMP_DIR=/home/historian/temp
 
 # Labels for metadata
 LABEL maintainer="Historian Reports Team" \

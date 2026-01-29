@@ -29,6 +29,7 @@ app.use(helmet({
       "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       "img-src": ["'self'", "data:", "blob:"],
       "connect-src": ["'self'", env.CORS_ORIGIN, "https://*.github.com"],
+      "upgrade-insecure-requests": null,
     },
   },
   hsts: false, // Disable HSTS to prevent Safari localhost issues
@@ -54,7 +55,7 @@ app.get('/health', async (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0',
+    version: '0.65.2',
     environment: env.NODE_ENV,
     cache: cacheHealth,
   });
