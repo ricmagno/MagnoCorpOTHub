@@ -146,7 +146,8 @@ async function validateStartupDependencies(): Promise<SystemHealth> {
 
   // Setup database configuration integration
   setupDatabaseConfigIntegration();
-  logger.info('✓ Database configuration integration setup completed');
+  await databaseConfigService.waitForInitialization();
+  logger.info('✓ Database configuration integration setup completed and initialized');
 
   // 0. Directory existence validation
   const directoriesStart = Date.now();
