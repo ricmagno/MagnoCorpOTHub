@@ -56,6 +56,7 @@ export interface ReportConfig {
   includeMultiTrend?: boolean;     // Include Combined Process Trends chart
   includeStatsSummary?: boolean;   // Include statistical summaries on charts
   includeDataTable?: boolean;      // Include data tables in the report
+  advancedFilters?: FilterCondition; // Advanced recursive logic filters
 
   // Import tracking metadata (for configurations loaded from export files)
   importMetadata?: {
