@@ -173,18 +173,33 @@ export class AuthService {
               apiLogger.error('Failed to create tables', { error: err });
               reject(err);
             } else {
-              // Check and add mobile column if it doesn't exist
+              // Migration: Check and add missing columns if they don't exist
               this.db.all("PRAGMA table_info(users)", (err, columns: any[]) => {
-                const hasMobile = columns?.some(col => col.name === 'mobile');
-                if (!hasMobile) {
-                  this.db.run('ALTER TABLE users ADD COLUMN mobile TEXT', (alterErr) => {
-                    if (alterErr) {
-                      apiLogger.error('Failed to add mobile column to users table', { error: alterErr });
-                    } else {
-                      apiLogger.info('Added mobile column to users table');
-                    }
-                  });
+                if (err) {
+                  apiLogger.error('Failed to get table info for users migration', { error: err });
+                  return;
                 }
+
+                const columnNames = columns?.map(col => col.name) || [];
+                const migrations = [
+                  { name: 'mobile', type: 'TEXT' },
+                  { name: 'is_view_only', type: 'BOOLEAN DEFAULT 0' },
+                  { name: 'parent_user_id', type: 'TEXT' },
+                  { name: 'auto_login_enabled', type: 'BOOLEAN DEFAULT 0' },
+                  { name: 'require_password_change', type: 'BOOLEAN DEFAULT 0' }
+                ];
+
+                migrations.forEach(migration => {
+                  if (!columnNames.includes(migration.name)) {
+                    this.db.run(`ALTER TABLE users ADD COLUMN ${migration.name} ${migration.type}`, (alterErr) => {
+                      if (alterErr) {
+                        apiLogger.error(`Failed to add ${migration.name} column to users table`, { error: alterErr });
+                      } else {
+                        apiLogger.info(`Added ${migration.name} column to users table`);
+                      }
+                    });
+                  }
+                });
               });
 
               // Insert default permissions

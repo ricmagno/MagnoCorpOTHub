@@ -97,8 +97,10 @@ export class StatisticalAnalysisService implements SPCCalculator, TrendLineCalcu
     const variance = validValues.reduce((acc, val) => acc + Math.pow(val - average, 2), 0) / validValues.length;
     const standardDeviation = Math.sqrt(variance);
 
-    // Calculate data quality percentage
-    const goodQualityCount = data.filter(point => point.quality === 192).length; // Good quality = 192
+    // Calculate data quality percentage (0=Good, 16=Good, 133=Good)
+    const goodQualityCount = data.filter(point => 
+      point.quality === 0 || point.quality === 16 || point.quality === 133
+    ).length;
     const dataQuality = (goodQualityCount / data.length) * 100;
 
     dbLogger.debug('Statistics calculated', {
@@ -902,7 +904,7 @@ export class StatisticalAnalysisService implements SPCCalculator, TrendLineCalcu
     // Count quality types
     for (const point of data) {
       switch (point.quality) {
-        case 192: // Good
+        case 0: // Good
           goodQuality++;
           break;
         case 0: // Bad

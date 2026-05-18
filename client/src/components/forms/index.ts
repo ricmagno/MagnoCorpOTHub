@@ -5,3 +5,4 @@ export { VersionComparison } from './VersionComparison';
 export { DatabaseConfigManager } from './DatabaseConfigManager';
 export { DatabaseConfigForm } from './DatabaseConfigForm';
 export { DatabaseConfigList } from './DatabaseConfigList';
+export { QualityFilter } from './QualityFilter';

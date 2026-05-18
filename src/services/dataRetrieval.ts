@@ -240,7 +240,7 @@ export class DataRetrievalService {
         endTime: this.formatDateForHistorian(timeRange.endTime)
       };
 
-      const result = await this.getConnection().executeQuery<{ estimatedCount: number }>(query + " AND wwTimeZone = 'UTC'", params);
+      const result = await this.getConnection().executeQuery<{ estimatedCount: number }>(query + " AND wwTimeZone = 'UTC' AND wwVersion = 'Latest'", params);
       return result.recordset[0]?.estimatedCount || 0;
     } catch (error) {
       dbLogger.warn('Failed to estimate data size, using default', { error });
@@ -271,12 +271,13 @@ export class DataRetrievalService {
           MAX(CAST(Value as FLOAT)) as max,
           STDEV(CAST(Value as FLOAT)) as standardDeviation,
           COUNT(*) as count,
-          SUM(CASE WHEN Quality >= 192 THEN 1 ELSE 0 END) as goodCount
+          SUM(CASE WHEN Quality IN (0, 16, 133) THEN 1 ELSE 0 END) as goodCount
         FROM History
         WHERE TagName = @tagName
           AND DateTime >= @startTime
           AND DateTime <= @endTime
           AND wwTimeZone = 'UTC'
+          AND wwVersion = 'Latest'
       `;
 
       const params = {
@@ -361,8 +362,10 @@ export class DataRetrievalService {
         AND DateTime <= @endTime
         AND wwRetrievalMode = @mode
         ${isCyclic ? 'AND wwResolution = @resolution' : ''}
+        ${options?.qualityFilter && options.qualityFilter.length > 0 ? `AND Quality IN (${options.qualityFilter.map((_, i) => `@quality${i}`).join(', ')})` : ''}
         AND wwTimeZone = 'UTC'
-      ORDER BY DateTime ASC
+        AND wwVersion = 'Latest'
+      ORDER BY ${options?.orderBy || 'DateTime ASC'}
     `;
 
     return query;
@@ -393,7 +396,8 @@ export class DataRetrievalService {
         AND DateTime <= @endTime
         AND wwRetrievalMode = @mode
         AND wwTimeZone = 'UTC'
-      ORDER BY DateTime
+        AND wwVersion = 'Latest'
+      ORDER BY ${options?.orderBy || 'DateTime ASC'}
       OFFSET @offset ROWS
       FETCH NEXT @batchSize ROWS ONLY
     `;
@@ -808,12 +812,17 @@ export class DataRetrievalService {
         }
       }
 
+      const quality = currentData.quality === 'Good' ? QualityCode.Good : QualityCode.Bad;
+      const { getQualityLabel, getQualityMeaning } = require('@/utils/qualityUtils');
+
       // Stage 1: Only current value is supported for OPC UA
       // We return it as a single point at the current time
       return [{
         timestamp,
         value: value as any, // Cast to any because TimeSeriesData expects number but we support strings in ValueBlocks
-        quality: currentData.quality === 'Good' ? QualityCode.Good : QualityCode.Bad,
+        quality,
+        qualityLabel: getQualityLabel(quality),
+        qualityMeaning: getQualityMeaning(quality),
         tagName: tagName,
         description: description || currentData.displayName || '',
         dataSource: 'opcua'
@@ -877,6 +886,13 @@ export class DataRetrievalService {
       params.maxPoints = options.maxPoints;
     }
 
+    // Add quality filter parameters
+    if (options?.qualityFilter && options.qualityFilter.length > 0) {
+      options.qualityFilter.forEach((quality, index) => {
+        params[`quality${index}`] = quality;
+      });
+    }
+
     return params;
   }
 
@@ -900,6 +916,7 @@ export class DataRetrievalService {
         AND DateTime <= @endTime
         AND wwRetrievalMode = 'Delta'
         AND wwTimeZone = 'UTC'
+        AND wwVersion = 'Latest'
     `;
 
     if (filter.samplingInterval) {
@@ -1077,6 +1094,7 @@ export class DataRetrievalService {
       WHERE DateTime >= @startTime
         AND DateTime <= @endTime
         AND wwTimeZone = 'UTC'
+        AND wwVersion = 'Latest'
     `;
 
     // Add same filters as main query (without cursor)
@@ -1116,13 +1134,18 @@ export class DataRetrievalService {
    * Transform raw database row to TimeSeriesData
    */
   private transformToTimeSeriesData(row: any, tagName?: string): TimeSeriesData {
+    const { getQualityLabel, getQualityMeaning } = require('@/utils/qualityUtils');
+    
     // Handle null values - convert to NaN to indicate missing data
     const value = row.value !== null && row.value !== undefined ? parseFloat(row.value) : NaN;
+    const quality = row.quality !== null && row.quality !== undefined ? row.quality : QualityCode.Good;
 
     return {
       timestamp: new Date(row.timestamp),
       value: value,
-      quality: row.quality || QualityCode.Good,
+      quality: quality,
+      qualityLabel: getQualityLabel(quality),
+      qualityMeaning: getQualityMeaning(quality),
       tagName: tagName || row.tagName
     };
   }

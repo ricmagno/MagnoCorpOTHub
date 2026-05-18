@@ -45,8 +45,8 @@ export function formatValue(value: number | null | undefined, decimals: number =
  * @returns Quality status: 'good', 'bad', or 'uncertain'
  */
 export function getQualityStatus(qualityCode: number | string): 'good' | 'bad' | 'uncertain' {
-  if (qualityCode === 192 || qualityCode === 'Good') return 'good';
-  if (qualityCode === 0 || qualityCode === 'Bad') return 'bad';
+  if (qualityCode === 0 || qualityCode === 'Good' || qualityCode === 16 || qualityCode === 133) return 'good';
+  if (qualityCode === 1 || qualityCode === 'Bad') return 'bad';
   return 'uncertain';
 }
 
@@ -56,25 +56,28 @@ export function getQualityStatus(qualityCode: number | string): 'good' | 'bad' |
  * @returns Human-readable quality description
  */
 export function getQualityDescription(qualityCode: number | string): string {
-  if (qualityCode === 'Good' || qualityCode === 192) {
-    return 'Good - Data is valid and reliable';
+  if (qualityCode === 'Good' || qualityCode === 0) {
+    return 'Good - Standard valid data';
   }
-  if (qualityCode === 'Bad' || qualityCode === 0) {
-    return 'Bad - Data is invalid or unreliable';
+  if (qualityCode === 16) {
+    return 'Good - Data received out of time sync';
   }
-  if (qualityCode === 'Uncertain' || qualityCode === 64) {
-    return 'Uncertain - Data quality is questionable';
+  if (qualityCode === 133) {
+    return 'Good - Initial value for query period';
+  }
+  if (qualityCode === 'Bad' || qualityCode === 1) {
+    return 'Bad - Invalid data (Comm/Device Failure)';
+  }
+  if (qualityCode === 'Uncertain' || qualityCode === 12) {
+    return 'Uncertain - Last known value or questionable quality';
   }
 
   const qualityMap: Record<number, string> = {
-    4: 'Configuration Error',
-    8: 'Not Connected',
-    12: 'Device Failure',
-    16: 'Sensor Failure',
-    20: 'Last Known Value',
-    24: 'Communication Failure',
-    28: 'Out of Service',
-    32: 'Waiting for Initial Data',
+    0: 'Good',
+    1: 'Bad',
+    12: 'Uncertain',
+    16: 'Good (Out of Sync)',
+    133: 'Good (Initial Value)'
   };
 
   if (typeof qualityCode === 'number' && qualityMap[qualityCode]) {
@@ -146,9 +149,9 @@ export function sortData(
  */
 function getQualityNumericValue(quality: string): number {
   switch (quality) {
-    case 'Good': return 192;
-    case 'Bad': return 0;
-    case 'Uncertain': return 64;
+    case 'Good': return 0;
+    case 'Bad': return 1;
+    case 'Uncertain': return 12;
     default: return 0;
   }
 }

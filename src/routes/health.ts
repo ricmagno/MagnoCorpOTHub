@@ -41,24 +41,30 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   };
 
 
-  // Test historian connection
-  try {
-    const historianConnection = getHistorianConnection();
-    const historianHealthy = await historianConnection.validateConnection();
-    healthStatus.services.historian = historianHealthy ? 'healthy' : 'unhealthy';
-  } catch (error) {
-    healthStatus.services.historian = 'unhealthy';
-    apiLogger.warn('Historian connection health check failed:', error);
-  }
+  // Test services in parallel for better performance and to prevent cumulative timeouts
+  const [historianHealthy, cacheHealthResult] = await Promise.all([
+    (async () => {
+      try {
+        const historianConnection = getHistorianConnection();
+        return await historianConnection.validateConnection();
+      } catch (error) {
+        apiLogger.warn('Historian connection health check failed:', error);
+        return false;
+      }
+    })(),
+    (async () => {
+      try {
+        const health = await cacheManager.healthCheck();
+        return health.cacheHealthy;
+      } catch (error) {
+        apiLogger.warn('Cache health check failed:', error);
+        return false;
+      }
+    })()
+  ]);
 
-  // Test cache connection
-  try {
-    const cacheHealth = await cacheManager.healthCheck();
-    healthStatus.services.cache = cacheHealth.cacheHealthy ? 'healthy' : 'unhealthy';
-  } catch (error) {
-    healthStatus.services.cache = 'unhealthy';
-    apiLogger.warn('Cache health check failed:', error);
-  }
+  healthStatus.services.historian = historianHealthy ? 'healthy' : 'unhealthy';
+  healthStatus.services.cache = cacheHealthResult ? 'healthy' : 'unhealthy';
 
   // Determine overall status
   const allServicesHealthy = Object.values(healthStatus.services).every(status => status === 'healthy');
@@ -113,40 +119,44 @@ router.get('/detailed', asyncHandler(async (req: Request, res: Response) => {
   };
 
 
-  // Detailed historian check
-  try {
-    const historianConnection = getHistorianConnection();
-    const historianHealthy = await historianConnection.validateConnection();
-    const connectionStatus = historianConnection.getConnectionStatus();
+  // Detailed checks in parallel
+  await Promise.all([
+    (async () => {
+      try {
+        const historianConnection = getHistorianConnection();
+        const historianHealthy = await historianConnection.validateConnection();
+        const connectionStatus = historianConnection.getConnectionStatus();
 
-    detailedHealth.services.historian = {
-      status: historianHealthy ? 'healthy' : 'unhealthy',
-      connectionStatus,
-      lastCheck: new Date().toISOString()
-    };
-  } catch (error) {
-    detailedHealth.services.historian.status = 'unhealthy';
-    detailedHealth.services.historian.lastCheck = new Date().toISOString();
-    apiLogger.warn('Detailed historian health check failed:', error);
-  }
+        detailedHealth.services.historian = {
+          status: historianHealthy ? 'healthy' : 'unhealthy',
+          connectionStatus,
+          lastCheck: new Date().toISOString()
+        };
+      } catch (error) {
+        detailedHealth.services.historian.status = 'unhealthy';
+        detailedHealth.services.historian.lastCheck = new Date().toISOString();
+        apiLogger.warn('Detailed historian health check failed:', error);
+      }
+    })(),
+    (async () => {
+      try {
+        const cacheHealth = await cacheManager.healthCheck();
+        const cacheStats = await cacheManager.getCacheStats();
 
-  // Detailed cache check
-  try {
-    const cacheHealth = await cacheManager.healthCheck();
-    const cacheStats = await cacheManager.getCacheStats();
-
-    detailedHealth.services.cache = {
-      status: cacheHealth.cacheHealthy ? 'healthy' : 'unhealthy',
-      enabled: cacheHealth.cacheEnabled,
-      connected: cacheHealth.cacheHealthy,
-      stats: cacheStats,
-      lastCheck: new Date().toISOString()
-    };
-  } catch (error) {
-    detailedHealth.services.cache.status = 'unhealthy';
-    detailedHealth.services.cache.lastCheck = new Date().toISOString();
-    apiLogger.warn('Detailed cache health check failed:', error);
-  }
+        detailedHealth.services.cache = {
+          status: cacheHealth.cacheHealthy ? 'healthy' : 'unhealthy',
+          enabled: cacheHealth.cacheEnabled,
+          connected: cacheHealth.cacheHealthy,
+          stats: cacheStats,
+          lastCheck: new Date().toISOString()
+        };
+      } catch (error) {
+        detailedHealth.services.cache.status = 'unhealthy';
+        detailedHealth.services.cache.lastCheck = new Date().toISOString();
+        apiLogger.warn('Detailed cache health check failed:', error);
+      }
+    })()
+  ]);
 
   // Determine overall status
   const allServicesHealthy = Object.values(detailedHealth.services)

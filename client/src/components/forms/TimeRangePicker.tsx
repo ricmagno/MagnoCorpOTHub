@@ -239,7 +239,12 @@ export const TimeRangePicker: React.FC<TimeRangePickerProps> = ({
           <Button
             variant={mode === 'preset' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => setMode('preset')}
+            onClick={() => {
+              setMode('preset');
+              if (!value.relativeRange) {
+                handlePresetChange('last24h');
+              }
+            }}
             className="w-full sm:w-auto flex justify-center"
           >
             <Calendar className="h-4 w-4 mr-2" />
@@ -248,7 +253,16 @@ export const TimeRangePicker: React.FC<TimeRangePickerProps> = ({
           <Button
             variant={mode === 'custom' ? 'primary' : 'outline'}
             size="sm"
-            onClick={() => setMode('custom')}
+            onClick={() => {
+              setMode('custom');
+              if (value.relativeRange) {
+                onChange({
+                  ...value,
+                  relativeRange: undefined,
+                  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                });
+              }
+            }}
             className="w-full sm:w-auto flex justify-center"
           >
             <Clock className="h-4 w-4 mr-2" />

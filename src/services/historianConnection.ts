@@ -9,6 +9,7 @@ import { dbLogger } from '@/utils/logger';
 import { createError } from '@/middleware/errorHandler';
 import { RetryHandler, RetryOptions } from '@/utils/retryHandler';
 import { databaseConfigService } from '@/services/databaseConfigService';
+import { env } from '@/config/environment';
 
 export class HistorianConnection {
   private pool: ConnectionPool | null = null;
@@ -242,6 +243,10 @@ export class HistorianConnection {
         }
 
         const request = this.pool.request();
+        
+        // Set request timeout from environment or use 30s default
+        request.timeout = env.DB_TIMEOUT_MS || 30000;
+
         // Add parameters if provided
         if (params) {
           Object.entries(params).forEach(([key, value]) => {
@@ -306,13 +311,49 @@ export class HistorianConnection {
    * Validate database connection
    */
   async validateConnection(): Promise<boolean> {
-    try {
-      await this.executeQuery('SELECT 1 as test');
-      return true;
-    } catch (error) {
-      dbLogger.error('Connection validation failed:', error);
-      return false;
-    }
+    const VALIDATION_TIMEOUT = 10000; // 10s hard timeout for health checks
+    
+    const validationPromise = (async () => {
+      try {
+        // If not connected, try to connect but with limited retries
+        if (!this.pool || !this.isConnected) {
+          // If a background connection is already in progress, it might be retrying forever.
+          // We don't want to wait for it indefinitely.
+          if (this.connectionPromise) {
+            // Wait for it, but the Promise.race will catch us if it's too slow
+            await this.connectionPromise;
+          } else {
+            await this.connect({ maxAttempts: 1 });
+          }
+        }
+
+        if (!this.pool) return false;
+
+        const request = this.pool.request();
+        request.timeout = 5000; // 5s timeout for the query itself
+        await request.query('SELECT 1 as test');
+        return true;
+      } catch (error) {
+        dbLogger.error('Connection validation failed:', error);
+        return false;
+      }
+    })();
+
+    let timeoutId: NodeJS.Timeout | undefined;
+
+    // Race the validation against a hard timeout
+    return Promise.race([
+      validationPromise.then((result) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        return result;
+      }),
+      new Promise<boolean>((resolve) => {
+        timeoutId = setTimeout(() => {
+          dbLogger.warn('Connection validation timed out after 10s');
+          resolve(false);
+        }, VALIDATION_TIMEOUT);
+      })
+    ]);
   }
 
   /**

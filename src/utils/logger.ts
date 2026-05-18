@@ -3,15 +3,7 @@ import { env } from '@/config/environment';
 import path from 'path';
 import fs from 'fs';
 
-// Import encryption service for data sanitization
-// Note: This creates a circular dependency, so we'll handle it differently
-let encryptionService: any = null;
-try {
-  // Lazy load to avoid circular dependency
-  encryptionService = require('@/services/encryptionService').encryptionService;
-} catch {
-  // Encryption service not available during initialization
-}
+// Note: encryptionService is loaded lazily inside sanitizeLogData to avoid circular dependencies
 
 // Ensure logs directory exists
 const logsDir = path.dirname(env.LOG_FILE);
@@ -104,9 +96,18 @@ function parseSize(sizeStr: string): number {
 /**
  * Sanitize sensitive data for logging
  */
+let lazyEncryptionService: any = null;
 function sanitizeLogData(data: any): any {
-  if (encryptionService && typeof encryptionService.sanitizeForLogging === 'function') {
-    return encryptionService.sanitizeForLogging(data);
+  if (!lazyEncryptionService) {
+    try {
+      lazyEncryptionService = require('@/services/encryptionService').encryptionService;
+    } catch {
+      // Not available yet
+    }
+  }
+
+  if (lazyEncryptionService && typeof lazyEncryptionService.sanitizeForLogging === 'function') {
+    return lazyEncryptionService.sanitizeForLogging(data);
   }
 
   // Fallback sanitization if encryption service is not available

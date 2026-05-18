@@ -45,8 +45,23 @@ export class DataFilteringService {
 
     // Apply advanced recursive filters
     if (filter.advancedConditions) {
+      // Precompute tag limits (min/max) for IS_MAX and IS_MIN operators
+      const tagLimits = new Map<string, { min: number, max: number }>();
+      for (const point of filteredData) {
+        if (point.value === null || point.value === undefined || isNaN(point.value) || !isFinite(point.value)) {
+          continue;
+        }
+        const limits = tagLimits.get(point.tagName);
+        if (!limits) {
+          tagLimits.set(point.tagName, { min: point.value, max: point.value });
+        } else {
+          if (point.value < limits.min) limits.min = point.value;
+          if (point.value > limits.max) limits.max = point.value;
+        }
+      }
+
       filteredData = filteredData.filter(point => 
-        this.evaluateCondition(point, filter.advancedConditions!)
+        this.evaluateCondition(point, filter.advancedConditions!, tagLimits)
       );
     }
 
@@ -62,7 +77,11 @@ export class DataFilteringService {
   /**
    * Evaluate a recursive filter condition against a data point
    */
-  evaluateCondition(point: TimeSeriesData, condition: FilterCondition): boolean {
+  evaluateCondition(
+    point: TimeSeriesData,
+    condition: FilterCondition,
+    tagLimits?: Map<string, { min: number; max: number }>
+  ): boolean {
     // If it's a comparison condition
     if (condition.comparison) {
       const { operator, value } = condition.comparison;
@@ -75,6 +94,14 @@ export class DataFilteringService {
         case 'GTE': return pointValue >= value;
         case 'LTE': return pointValue <= value;
         case 'NEQ': return pointValue !== value;
+        case 'IS_MAX': {
+          const limits = tagLimits?.get(point.tagName);
+          return limits ? pointValue === limits.max : true;
+        }
+        case 'IS_MIN': {
+          const limits = tagLimits?.get(point.tagName);
+          return limits ? pointValue === limits.min : true;
+        }
         default: return true;
       }
     }
@@ -85,13 +112,13 @@ export class DataFilteringService {
 
       switch (logicalOperator) {
         case 'AND':
-          return conditions.every(c => this.evaluateCondition(point, c));
+          return conditions.every(c => this.evaluateCondition(point, c, tagLimits));
         case 'OR':
-          return conditions.some(c => this.evaluateCondition(point, c));
+          return conditions.some(c => this.evaluateCondition(point, c, tagLimits));
         case 'NOR':
-          return !conditions.some(c => this.evaluateCondition(point, c));
+          return !conditions.some(c => this.evaluateCondition(point, c, tagLimits));
         case 'NOT':
-          return conditions.length > 0 && conditions[0] ? !this.evaluateCondition(point, conditions[0]) : true;
+          return conditions.length > 0 && conditions[0] ? !this.evaluateCondition(point, conditions[0], tagLimits) : true;
 
         default:
           return true;
@@ -117,44 +144,57 @@ export class DataFilteringService {
       uncertain: number;
       other: number;
       filteredOut: number;
+      details: Array<{
+        code: number;
+        label: string;
+        meaning: string;
+        count: number;
+        percentage: number;
+      }>;
     };
   } {
-    const qualityReport = {
-      total: data.length,
-      good: 0,
-      bad: 0,
-      uncertain: 0,
-      other: 0,
-      filteredOut: 0
-    };
-
+    const { getQualityLabel, getQualityMeaning } = require('@/utils/qualityUtils');
+    
+    const counts = new Map<number, number>();
     const filteredData: TimeSeriesData[] = [];
+    let filteredOutCount = 0;
 
+    // Count occurrences of each quality code
     for (const point of data) {
-      // Count quality types
-      switch (point.quality) {
-        case QualityCode.Good:
-          qualityReport.good++;
-          break;
-        case QualityCode.Bad:
-          qualityReport.bad++;
-          break;
-        case QualityCode.Uncertain:
-          qualityReport.uncertain++;
-          break;
-        default:
-          qualityReport.other++;
-      }
+      counts.set(point.quality, (counts.get(point.quality) || 0) + 1);
 
       // Include point if quality is allowed
       if (allowedQualities.includes(point.quality)) {
         filteredData.push(point);
       } else {
-        qualityReport.filteredOut++;
+        filteredOutCount++;
       }
     }
 
-    dbLogger.debug('Quality filtering completed', qualityReport);
+    const total = data.length;
+    const qualityReport = {
+      total,
+      good: counts.get(QualityCode.Good) || 0,
+      bad: counts.get(QualityCode.Bad) || 0,
+      uncertain: counts.get(QualityCode.Uncertain) || 0,
+      other: Array.from(counts.entries())
+        .filter(([code]) => ![QualityCode.Good, QualityCode.Bad, QualityCode.Uncertain].includes(code as QualityCode))
+        .reduce((sum, [_, count]) => sum + count, 0),
+      filteredOut: filteredOutCount,
+      details: Array.from(counts.entries()).map(([code, count]) => ({
+        code,
+        label: getQualityLabel(code),
+        meaning: getQualityMeaning(code),
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0
+      }))
+    };
+
+    dbLogger.debug('Enhanced quality filtering completed', { 
+      total, 
+      good: qualityReport.good, 
+      filteredOut: qualityReport.filteredOut 
+    });
 
     return { filteredData, qualityReport };
   }
@@ -446,11 +486,12 @@ export class DataFilteringService {
       }
       condition.conditions.forEach(c => this.validateFilterCondition(c, depth + 1));
     } else if (condition.comparison) {
-      if (condition.comparison.value === undefined || isNaN(condition.comparison.value)) {
-        throw createError('Comparison condition must have a valid numeric value', 400);
-      }
       if (!condition.comparison.operator) {
         throw createError('Comparison condition must specify an operator', 400);
+      }
+      const isUnary = condition.comparison.operator === 'IS_MAX' || condition.comparison.operator === 'IS_MIN';
+      if (!isUnary && (condition.comparison.value === undefined || isNaN(condition.comparison.value))) {
+        throw createError('Comparison condition must have a valid numeric value', 400);
       }
     } else {
       throw createError('Filter condition must specify either a logical operator or a comparison', 400);

@@ -177,7 +177,8 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
             {
               limit: 1000, // Safe visual maximum
               retrievalMode: config.retrievalMode || 'Delta',
-              advancedFilters: config.advancedFilters
+              advancedFilters: config.advancedFilters,
+              qualityFilter: config.qualityFilter
             }
           );
           return { tagName, data: response.success ? response.data : [] };
@@ -225,8 +226,8 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
         const variance = validValues.reduce((s, v) => s + Math.pow(v - average, 2), 0) / validValues.length;
         const standardDeviation = Math.sqrt(variance);
 
-        // Data quality: proportion of Good-quality points (code 192)
-        const goodCount = data.filter(p => p.quality === 192 || p.quality === 'Good').length;
+        // Data quality: proportion of Good-quality points (code 0)
+        const goodCount = data.filter(p => p.quality === 0 || p.quality === 'Good').length;
         const dataQuality = (goodCount / data.length) * 100;
 
         return { min, max, average, median, standardDeviation, count: validValues.length, dataQuality };
@@ -280,7 +281,8 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
     config.timeRange?.startTime,
     config.timeRange?.endTime,
     config.retrievalMode,
-    config.advancedFilters
+    config.advancedFilters,
+    config.qualityFilter
   ]);
 
   // Auto-update preview data when relevant configuration changes
@@ -305,9 +307,9 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
     Object.values(previewData.dataPoints).forEach(data => {
       data.forEach(point => {
         totalPoints++;
-        if (point.quality === 'Good' || point.quality === 192) goodQuality++;
-        else if (point.quality === 'Bad' || point.quality === 0) badQuality++;
-        else uncertainQuality++;
+        if (point.quality === 'Good' || point.quality === 0 || point.quality === 16 || point.quality === 133) goodQuality++;
+        else if (point.quality === 'Uncertain' || point.quality === 12) uncertainQuality++;
+        else badQuality++;
       });
     });
 
@@ -722,7 +724,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
             {/* Footer note */}
             <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
               <p className="text-[10px] text-gray-400">
-                Quality %: proportion of readings with Good quality (code 192). Std Dev = population standard deviation.
+                Quality %: proportion of readings with Good quality (code 0). Std Dev = population standard deviation.
               </p>
             </div>
           </div>

@@ -100,7 +100,7 @@ export class DataManagementService {
           const dPart = parts[2]?.trim() || '';
           const tPart = parts[3]?.trim() || '';
           const vPart = parts[5]?.trim() || '';
-          const qPart = parts[6] ? parts[6]?.trim() : '192';
+          const qPart = parts[6] ? parts[6]?.trim() : '0';
 
           const dtObj = this.parseCustomDateString(dPart, tPart);
           const val = parseFloat(vPart.replace(/,/g, ''));
@@ -109,7 +109,7 @@ export class DataManagementService {
               tagName: tName,
               dateTime: dtObj,
               value: val,
-              quality: parseInt(qPart || '192') || 192
+              quality: parseInt(qPart || '0') || 0
             });
           }
         }
@@ -175,7 +175,7 @@ export class DataManagementService {
             }
 
             const qualityVal = getVal(['quality', 'opcquality']);
-            const quality = parseInt(qualityVal !== undefined ? String(qualityVal) : '192') || 192;
+            const quality = parseInt(qualityVal !== undefined ? String(qualityVal) : '0') || 0;
 
             const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : parseFloat(rawValue);
 
@@ -222,7 +222,7 @@ export class DataManagementService {
               tagName: fallbackTagName,
               dateTime: dtObj,
               value: val,
-              quality: 192
+              quality: 0
             });
             continue;
           }
@@ -238,7 +238,7 @@ export class DataManagementService {
             tagName: fallbackTagName,
             dateTime: dtObj,
             value: val,
-            quality: 192
+            quality: 0
           });
         }
       }
@@ -297,7 +297,7 @@ export class DataManagementService {
           tagName,
           dateTime: this.excelSerialToDate(serialDate),
           value,
-          quality: 192
+          quality: 0
         });
       }
     }
@@ -383,7 +383,7 @@ export class DataManagementService {
           tagName: `Kagome_AU.${title}`,
           dateTime: timestamp,
           value,
-          quality: 192
+          quality: 0
         });
       }
     }
@@ -460,7 +460,7 @@ export class DataManagementService {
       const milliseconds = String(d.getMilliseconds()).padStart(3, '0');
       
       const dateStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-      return `INSERT INTO History (TagName, DateTime, Value, OPCQuality) VALUES ('${dp.tagName}', '${dateStr}', ${dp.value}, ${dp.quality});`;
+      return `INSERT INTO History (TagName, DateTime, Value, Quality) VALUES ('${dp.tagName}', '${dateStr}', ${dp.value}, ${dp.quality});`;
     }).join('\n');
   }
 

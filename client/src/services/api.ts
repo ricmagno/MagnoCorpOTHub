@@ -90,16 +90,21 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     defaultHeaders['Authorization'] = `Bearer ${authToken}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second global timeout
+
   const requestOptions: RequestInit = {
     headers: {
       ...defaultHeaders,
       ...options?.headers,
     },
     ...options,
+    signal: controller.signal,
   };
 
   try {
     const response = await fetch(url, requestOptions);
+    clearTimeout(timeoutId);
 
     // Handle different response types
     if (!response.ok) {
@@ -127,7 +132,11 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
       // For binary data like PDFs
       return await response.blob() as unknown as T;
     }
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new ApiError(408, 'Request timed out after 60 seconds');
+    }
     if (error instanceof ApiError) {
       throw error;
     }
@@ -275,6 +284,7 @@ export const apiService = {
       retrievalMode?: string;
       timezone?: string;
       advancedFilters?: any;
+      qualityFilter?: number[];
     }
   ): Promise<ApiResponse<TimeSeriesData[]>> {
     const params = new URLSearchParams({
@@ -286,6 +296,7 @@ export const apiService = {
       ...(options?.retrievalMode && { retrievalMode: options.retrievalMode }),
       ...(options?.timezone && { timezone: options.timezone }),
       ...(options?.advancedFilters && { advancedFilters: JSON.stringify(options.advancedFilters) }),
+      ...(options?.qualityFilter && { qualityFilter: JSON.stringify(options.qualityFilter) }),
     });
 
     return fetchWithRetry(`/data/${encodeURIComponent(tagName)}?${params}`);
