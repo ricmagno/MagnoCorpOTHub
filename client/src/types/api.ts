@@ -3,6 +3,8 @@ export interface TimeSeriesData {
   timestamp: Date;
   value: number;
   quality: 'Good' | 'Bad' | 'Uncertain' | number;
+  qualityLabel?: string;
+  qualityMeaning?: string;
   tagName: string;
   description?: string;
 }
@@ -25,7 +27,7 @@ export interface SpecificationLimits {
 }
 
 export type LogicalOperator = 'AND' | 'OR' | 'NOR' | 'NOT';
-export type ComparisonOperator = 'EQ' | 'GT' | 'LT' | 'GTE' | 'LTE' | 'NEQ';
+export type ComparisonOperator = 'EQ' | 'GT' | 'LT' | 'GTE' | 'LTE' | 'NEQ' | 'IS_MAX' | 'IS_MIN';
 
 export interface FilterCondition {
   logicalOperator?: LogicalOperator;
@@ -47,6 +49,7 @@ export interface ReportConfig {
   format?: 'pdf' | 'docx';
   retrievalMode?: 'Delta' | 'Cyclic' | 'Full' | 'BestFit' | 'Average' | 'Minimum' | 'Maximum' | 'Interpolated' | 'ValueState' | 'AVG' | 'RoundTrip' | 'Live';
   filters?: DataFilter[];
+  qualityFilter?: number[];
   advancedFilters?: FilterCondition;
   createdBy?: string;
   createdAt?: Date;

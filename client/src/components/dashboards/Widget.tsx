@@ -103,12 +103,12 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                                 if (existingIdx > -1) {
                                     mergedData[existingIdx] = {
                                         ...mergedData[existingIdx],
-                                        quality: 0, // Mark as bad/expired
+                                        quality: 1, // Mark as bad/expired
                                         timestamp: new Date() // Still update timestamp
                                     };
                                 } else if (newPoint) {
                                     // First time seeing this tag but it's null
-                                    mergedData.push({ ...newPoint, quality: 0 });
+                                    mergedData.push({ ...newPoint, quality: 1 });
                                 }
                             }
                         });
@@ -245,7 +245,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                         tagName={tagName}
                         unit={tagInfo?.units || ''}
                         description={lastPoint?.description || tagInfo?.description}
-                        status={lastPoint?.quality === 'Good' || lastPoint?.quality === 192 ? 'good' : 'bad'}
+                        status={lastPoint?.quality === 'Good' || lastPoint?.quality === 0 || lastPoint?.quality === 16 || lastPoint?.quality === 133 ? 'good' : 'bad'}
                         isMaximized={isMaximized}
                     />
                 );
@@ -258,7 +258,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                         value={lastPoint?.value ?? 'N/A'}
                         unit={tagInfo?.units}
                         description={lastPoint?.description || tagInfo?.description}
-                        status={lastPoint?.quality === 'Good' || lastPoint?.quality === 192 ? 'good' : 'bad'}
+                        status={lastPoint?.quality === 'Good' || lastPoint?.quality === 0 || lastPoint?.quality === 16 || lastPoint?.quality === 133 ? 'good' : 'bad'}
                         className="rounded-none border-0 shadow-none bg-transparent"
                         isMaximized={isMaximized}
                     />
@@ -275,7 +275,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                 const lastPoint = tagData[tagData.length - 1];
                 radarData[tag] = lastPoint?.value || 0;
 
-                if (lastPoint && lastPoint.quality !== 'Good' && lastPoint.quality !== 192) {
+                if (lastPoint && lastPoint.quality !== 'Good' && lastPoint.quality !== 0) {
                     isAnyBad = true;
                 }
             });

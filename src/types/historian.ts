@@ -7,24 +7,28 @@ export interface TimeSeriesData {
   timestamp: Date;
   value: number;
   quality: QualityCode;
+  qualityLabel?: string;
+  qualityMeaning?: string;
   tagName: string;
   description?: string | undefined;
   dataSource?: 'historian' | 'opcua';
 }
 
-// AVEVA Historian quality codes
+/**
+ * AVEVA Historian Quality values (from the 'Quality' column)
+ * 
+ * Native Historian quality is different from OPC quality:
+ * - 0: Good (Standard valid data)
+ * - 1: Bad (Communication or device error)
+ * - 16: Good (Out of time sync)
+ * - 133: Good (Initial value for delta requests)
+ */
 export enum QualityCode {
-  Good = 192,           // Good quality data
-  Bad = 0,              // Bad quality data
-  Uncertain = 64,       // Uncertain quality data
-  ConfigError = 4,      // Configuration error
-  NotConnected = 8,     // Not connected
-  DeviceFailure = 12,   // Device failure
-  SensorFailure = 16,   // Sensor failure
-  LastKnownValue = 20,  // Last known value
-  CommFailure = 24,     // Communication failure
-  OutOfService = 28,    // Out of service
-  WaitingForInitialData = 32, // Waiting for initial data
+  Good = 0,             // Primary Good quality code
+  Bad = 1,              // Primary Bad quality code
+  Uncertain = 12,       // Uncertain / Last Known Value
+  InitialValue = 133,   // Good (Initial value)
+  OutOfSync = 16,       // Good (Out of sync)
 }
 
 // Tag information from AVEVA Historian
@@ -53,7 +57,7 @@ export interface TimeRange {
 export type LogicalOperator = 'AND' | 'OR' | 'NOR' | 'NOT';
 
 // Comparison operators for data values
-export type ComparisonOperator = 'EQ' | 'GT' | 'LT' | 'GTE' | 'LTE' | 'NEQ';
+export type ComparisonOperator = 'EQ' | 'GT' | 'LT' | 'GTE' | 'LTE' | 'NEQ' | 'IS_MAX' | 'IS_MIN';
 
 // Recursive filter condition structure
 export interface FilterCondition {
@@ -180,6 +184,8 @@ export interface HistorianQueryOptions {
   maxPoints?: number | undefined;       // Maximum points to return (maps to wwCycleCount)
   includeQuality?: boolean | undefined; // Include quality information
   limit?: number | undefined;           // Maximum number of rows to return (maps to TOP/wwRowCount)
+  qualityFilter?: number[] | undefined; // Filter by specific quality codes
+  orderBy?: string | undefined;         // Custom order by clause to override default DateTime ASC
 }
 
 // Specification limits for SPC analysis

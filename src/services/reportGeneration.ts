@@ -1123,7 +1123,7 @@ export class ReportGenerationService {
       .fillColor('#6b7280')
       .font('Helvetica')
       .text(
-        '* Quality %: proportion of data points with Good quality status (code 192). ' +
+        '* Quality %: proportion of data points with Good quality status (codes 0, 16, 133). ' +
         'Std Dev = population standard deviation. Count = number of valid numeric data points.',
         25, doc.y,
         { width: doc.page.width - 50 }
@@ -1436,9 +1436,9 @@ export class ReportGenerationService {
 
     // Helper function to get quality status text
     const getQualityStatus = (quality: number): string => {
-      if (quality === 192) return 'Good';
-      if (quality === 0) return 'Bad';
-      if (quality === 64) return 'Uncertain';
+      if (quality === 0) return 'Good';
+      if (quality === 12) return 'Uncertain';
+      if (quality === 1) return 'Bad';
       return `Code ${quality}`;
     };
 
@@ -1801,9 +1801,9 @@ export class ReportGenerationService {
    * Calculate data quality breakdown
    */
   private calculateQualityBreakdown(data: TimeSeriesData[]) {
-    const good = data.filter(d => d.quality === 192).length;
-    const bad = data.filter(d => d.quality === 0).length;
-    const uncertain = data.filter(d => d.quality === 64).length;
+    const good = data.filter(d => d.quality === 0).length;
+    const bad = data.filter(d => d.quality !== 0 && d.quality !== 12).length;
+    const uncertain = data.filter(d => d.quality === 12).length;
     const total = data.length;
 
     return {

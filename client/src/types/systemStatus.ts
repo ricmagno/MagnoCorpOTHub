@@ -14,9 +14,9 @@ export enum StatusCategory {
 
 // Quality codes from AVEVA Historian
 export enum QualityCode {
-  Good = 192,
-  Bad = 0,
-  Uncertain = 64
+  Good = 0,
+  Bad = 1,
+  Uncertain = 12
 }
 
 export interface ServerTimeInfo {

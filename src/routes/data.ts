@@ -54,7 +54,17 @@ const queryOptionsSchema = z.object({
   tolerance: z.number().positive().optional(),
   maxPoints: z.preprocess((val) => val === undefined ? undefined : Number(val), z.number().positive().max(1000000000000).optional()),
   limit: z.preprocess((val) => val === undefined ? undefined : Number(val), z.number().positive().max(1000000000000).optional()),
-  includeQuality: z.preprocess((val) => val === 'false' ? false : true, z.boolean().default(true))
+  includeQuality: z.preprocess((val) => val === 'false' ? false : true, z.boolean().default(true)),
+  qualityFilter: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch (e) {
+        return undefined;
+      }
+    }
+    return val;
+  }, z.array(z.number()).optional())
 }).transform(data => {
   // If retrievalMode is provided, use it instead of mode
   if (data.retrievalMode !== undefined) {
@@ -84,6 +94,19 @@ router.get('/tags', asyncHandler(async (req: Request, res: Response) => {
     success: true,
     data: tags,
     count: tags.length
+  });
+}));
+
+/**
+ * GET /api/data/quality-codes
+ * Get human-readable meanings for all Historian quality codes
+ */
+router.get('/quality-codes', asyncHandler(async (req: Request, res: Response) => {
+  const { QUALITY_MEANINGS } = require('@/utils/qualityUtils');
+  
+  res.json({
+    success: true,
+    data: QUALITY_MEANINGS
   });
 }));
 
@@ -162,6 +185,37 @@ router.get('/:tagName',
 
       const dataRetrievalService = cacheManager.getDataRetrievalService();
       const statisticalAnalysisService = cacheManager.getStatisticalAnalysisService();
+      
+      // Step: Intercept Advanced Filters for IS_MAX/IS_MIN optimization
+      const advancedFiltersRaw = req.query.advancedFilters;
+      let hasIsMaxOrMin = false;
+      if (advancedFiltersRaw && typeof advancedFiltersRaw === 'string') {
+        try {
+          const parsed = JSON.parse(advancedFiltersRaw);
+          const hasOperator = (op: string, obj: any): boolean => {
+            if (!obj) return false;
+            if (obj.comparison && obj.comparison.operator === op) return true;
+            if (obj.conditions && Array.isArray(obj.conditions)) {
+              return obj.conditions.some((c: any) => hasOperator(op, c));
+            }
+            return false;
+          };
+          if (hasOperator('IS_MAX', parsed)) {
+            options.orderBy = 'Value DESC, DateTime DESC'; // In case of tie, latest point wins
+            options.limit = 1;
+            options.maxPoints = 1;
+            hasIsMaxOrMin = true;
+          } else if (hasOperator('IS_MIN', parsed)) {
+            options.orderBy = 'Value ASC, DateTime DESC'; // In case of tie, latest point wins
+            options.limit = 1;
+            options.maxPoints = 1;
+            hasIsMaxOrMin = true;
+          }
+        } catch (e) {
+          apiLogger.warn('Failed to parse advancedFilters for pre-optimization', { error: e });
+        }
+      }
+
       const data = await dataRetrievalService.getTimeSeriesData(
         tagName,
         timeRange,
@@ -171,13 +225,28 @@ router.get('/:tagName',
       
       // Step: Apply Advanced Filters if present
       let filteredData = data;
-      const advancedFiltersRaw = req.query.advancedFilters;
-      if (advancedFiltersRaw && typeof advancedFiltersRaw === 'string') {
+      if (advancedFiltersRaw && typeof advancedFiltersRaw === 'string' && !hasIsMaxOrMin) {
         try {
           const advancedFilters = JSON.parse(advancedFiltersRaw);
           if (advancedFilters && (advancedFilters.logicalOperator || advancedFilters.comparison)) {
             apiLogger.info('Applying advanced filters to retrieved data', { tagName, filterCount: advancedFilters.conditions?.length });
-            filteredData = data.filter(point => dataFilteringService.evaluateCondition(point, advancedFilters));
+            
+            // Precompute tag limits for IS_MAX and IS_MIN operators
+            const tagLimits = new Map<string, { min: number, max: number }>();
+            for (const point of data) {
+              if (point.value === null || point.value === undefined || isNaN(point.value) || !isFinite(point.value)) {
+                continue;
+              }
+              const limits = tagLimits.get(point.tagName);
+              if (!limits) {
+                tagLimits.set(point.tagName, { min: point.value, max: point.value });
+              } else {
+                if (point.value < limits.min) limits.min = point.value;
+                if (point.value > limits.max) limits.max = point.value;
+              }
+            }
+
+            filteredData = data.filter(point => dataFilteringService.evaluateCondition(point, advancedFilters, tagLimits));
             apiLogger.info('Filtering complete', { tagName, originalCount: data.length, filteredCount: filteredData.length });
           }
         } catch (parseError) {

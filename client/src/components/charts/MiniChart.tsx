@@ -67,7 +67,7 @@ export const MiniChart: React.FC<MiniChartProps> = ({
 
   const getQualityColor = () => {
     if (!data || data.length === 0) return '#94a3b8';
-    const goodQualityCount = data.filter(point => point.quality === 'Good' || point.quality === 192).length;
+    const goodQualityCount = data.filter(point => point.quality === 'Good' || point.quality === 0 || point.quality === 16 || point.quality === 133).length;
     const qualityPercentage = (goodQualityCount / data.length) * 100;
 
     if (qualityPercentage >= 90) return '#10b981'; // green

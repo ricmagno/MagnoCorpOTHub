@@ -275,7 +275,7 @@ export interface PowerBIQueryParams {
   startTime: Date;
   /** End time for data retrieval */
   endTime: Date;
-  /** Quality code filter (default: 192 for Good quality) */
+  /** Quality code filter (default: 0 for Good quality) */
   qualityFilter: number;
 }
 

@@ -192,7 +192,7 @@ export class ConfigExportService {
       tags: config.tags,
       startTime,
       endTime,
-      qualityFilter: 192, // Good quality only (standard AVEVA Historian quality code)
+      qualityFilter: 0, // Good quality only (standard AVEVA Historian system quality code)
     };
   }
 
@@ -265,7 +265,7 @@ let
     StartTime = #datetime(${params.startTime.getFullYear()}, ${params.startTime.getMonth() + 1}, ${params.startTime.getDate()}, ${params.startTime.getHours()}, ${params.startTime.getMinutes()}, ${params.startTime.getSeconds()}),
     EndTime = #datetime(${params.endTime.getFullYear()}, ${params.endTime.getMonth() + 1}, ${params.endTime.getDate()}, ${params.endTime.getHours()}, ${params.endTime.getMinutes()}, ${params.endTime.getSeconds()}),
     
-    // Quality code filter (192 = Good quality in AVEVA Historian)
+    // Quality code filter (0 = Good quality in AVEVA Historian)
     QualityFilter = ${params.qualityFilter},
     
     // ========================================================================
@@ -278,18 +278,19 @@ let
             t.TagName,
             h.DateTime,
             h.Value,
-            h.QualityCode,
+            h.Quality,
             CASE 
-                WHEN h.QualityCode = 192 THEN 'Good'
-                WHEN h.QualityCode = 0 THEN 'Bad'
-                ELSE 'Uncertain'
+                WHEN h.Quality = 0 THEN 'Good'
+                WHEN h.Quality = 12 THEN 'Uncertain'
+                ELSE 'Bad'
             END as QualityStatus
         FROM History h
         INNER JOIN Tag t ON h.TagId = t.TagId
         WHERE t.TagName IN (" & Text.Combine(List.Transform(Tags, each "'" & Text.Replace(_, "'", "''") & "'"), ", ") & ")
           AND h.DateTime >= '${startTimeStr}'
           AND h.DateTime <= '${endTimeStr}'
-          AND h.QualityCode = " & Number.ToText(QualityFilter) & "
+          AND h.Quality = " & Number.ToText(QualityFilter) & "
+          AND h.wwVersion = 'Latest'
         ORDER BY t.TagName, h.DateTime
     ",
     
@@ -301,7 +302,7 @@ let
         {"TagName", type text},
         {"DateTime", type datetime},
         {"Value", type number},
-        {"QualityCode", Int64.Type},
+        {"Quality", Int64.Type},
         {"QualityStatus", type text}
     })
 in

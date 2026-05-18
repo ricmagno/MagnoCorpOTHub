@@ -9,6 +9,7 @@ import { cn } from '../../utils/cn';
 interface DataFilterConfigProps {
   filters?: FilterCondition;
   onChange: (filters: FilterCondition | undefined) => void;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -20,11 +21,14 @@ const COMPARISON_OPERATORS: { value: ComparisonOperator; label: string }[] = [
   { value: 'GTE', label: '>=' },
   { value: 'LTE', label: '<=' },
   { value: 'NEQ', label: '!=' },
+  { value: 'IS_MAX', label: 'Is Maximum' },
+  { value: 'IS_MIN', label: 'Is Minimum' },
 ];
 
 export const DataFilterConfig: React.FC<DataFilterConfigProps> = ({
   filters,
   onChange,
+  disabled = false,
   className
 }) => {
   const handleAddRoot = () => {
@@ -62,7 +66,12 @@ export const DataFilterConfig: React.FC<DataFilterConfigProps> = ({
         {!filters ? (
           <div className="text-center py-6">
             <p className="text-sm text-gray-500 mb-4">No advanced filters configured.</p>
-            <Button onClick={handleAddRoot} size="sm" className="bg-primary-600 hover:bg-primary-700">
+            <Button 
+              onClick={handleAddRoot} 
+              size="sm" 
+              className="bg-primary-600 hover:bg-primary-700"
+              disabled={disabled}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Filter Group
             </Button>
@@ -73,6 +82,7 @@ export const DataFilterConfig: React.FC<DataFilterConfigProps> = ({
             onUpdate={handleUpdate} 
             onDelete={() => onChange(undefined)} 
             depth={0} 
+            disabled={disabled}
           />
         )}
         {filters && (
@@ -90,7 +100,8 @@ const FilterNode: React.FC<{
   onUpdate: (newNode: FilterCondition) => void;
   onDelete: () => void;
   depth: number;
-}> = ({ node, onUpdate, onDelete, depth }) => {
+  disabled?: boolean;
+}> = ({ node, onUpdate, onDelete, depth, disabled }) => {
   const isGroup = !!node.logicalOperator;
 
   const handleAddCondition = () => {
@@ -153,16 +164,16 @@ const FilterNode: React.FC<{
             </select>
           </div>
           <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="sm" onClick={handleAddCondition} className="h-7 text-[10px] px-2">
+            <Button variant="ghost" size="sm" onClick={handleAddCondition} className="h-7 text-[10px] px-2" disabled={disabled}>
               <Zap className="w-3 h-3 mr-1" />
               Condition
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleAddGroup} className="h-7 text-[10px] px-2">
+            <Button variant="ghost" size="sm" onClick={handleAddGroup} className="h-7 text-[10px] px-2" disabled={disabled}>
               <Plus className="w-3 h-3 mr-1" />
               Group
             </Button>
             {depth > 0 && (
-              <Button variant="ghost" size="sm" onClick={onDelete} className="h-7 w-7 p-0 text-gray-400 hover:text-red-600">
+              <Button variant="ghost" size="sm" onClick={onDelete} className="h-7 w-7 p-0 text-gray-400 hover:text-red-600" disabled={disabled}>
                 <Trash2 className="w-3 h-3" />
               </Button>
             )}
@@ -177,6 +188,7 @@ const FilterNode: React.FC<{
               onUpdate={(newNode) => handleUpdateChild(index, newNode)}
               onDelete={() => handleDeleteChild(index)}
               depth={depth + 1}
+              disabled={disabled}
             />
           ))}
           {(!node.conditions || node.conditions.length === 0) && (
@@ -199,22 +211,26 @@ const FilterNode: React.FC<{
           comparison: { ...node.comparison!, operator: e.target.value as ComparisonOperator } 
         })}
         className="text-xs border-gray-300 rounded px-1.5 py-1 focus:ring-primary-500 focus:border-primary-500"
+        disabled={disabled}
       >
         {COMPARISON_OPERATORS.map(op => (
           <option key={op.value} value={op.value}>{op.label}</option>
         ))}
       </select>
-      <Input
-        type="number"
-        value={node.comparison?.value}
-        onChange={(e) => onUpdate({ 
-          ...node, 
-          comparison: { ...node.comparison!, value: parseFloat(e.target.value) || 0 } 
-        })}
-        className="h-8 text-xs w-24"
-        placeholder="Value"
-      />
-      <Button variant="ghost" size="sm" onClick={onDelete} className="h-8 w-8 p-0 text-gray-400 hover:text-red-600">
+      {node.comparison?.operator !== 'IS_MAX' && node.comparison?.operator !== 'IS_MIN' && (
+        <Input
+          type="number"
+          value={node.comparison?.value}
+          onChange={(e) => onUpdate({ 
+            ...node, 
+            comparison: { ...node.comparison!, value: parseFloat(e.target.value) || 0 } 
+          })}
+          className="h-8 text-xs w-24"
+          placeholder="Value"
+          disabled={disabled}
+        />
+      )}
+      <Button variant="ghost" size="sm" onClick={onDelete} className="h-8 w-8 p-0 text-gray-400 hover:text-red-600" disabled={disabled}>
         <Trash2 className="w-3.5 h-3.5" />
       </Button>
     </div>

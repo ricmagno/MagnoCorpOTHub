@@ -42,6 +42,7 @@ import { DashboardView } from '../dashboards/DashboardView';
 import { DashboardEditor } from '../dashboards/DashboardEditor';
 import { TagSelector } from '../forms/TagSelector';
 import { DataFilterConfig } from '../forms/DataFilterConfig';
+import { QualityFilter } from '../forms/QualityFilter';
 import { AlertsManagement } from '../alerts/AlertsManagement';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -84,6 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
     includeStatsSummary: true,
     includeDataTable: false,
     specificationLimits: {},
+    qualityFilter: [0], // Default to Good quality (0)
     advancedFilters: undefined,
   });
   const [savedConfig, setSavedConfig] = useState<Partial<ReportConfig> | null>(null);
@@ -109,6 +111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
     // Nested object comparison (specificationLimits, advancedFilters)
     if (JSON.stringify(reportConfig.specificationLimits) !== JSON.stringify(savedConfig.specificationLimits)) return true;
     if (JSON.stringify(reportConfig.advancedFilters) !== JSON.stringify(savedConfig.advancedFilters)) return true;
+    if (JSON.stringify(reportConfig.qualityFilter?.sort()) !== JSON.stringify(savedConfig.qualityFilter?.sort())) return true;
 
     // Time range comparison
     const tr1 = reportConfig.timeRange;
@@ -346,6 +349,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
         includeStatsSummary: reportConfig.includeStatsSummary ?? true,
         includeDataTable: reportConfig.includeDataTable ?? false,
         specificationLimits: reportConfig.specificationLimits || {},
+        qualityFilter: reportConfig.qualityFilter,
         advancedFilters: reportConfig.advancedFilters,
         version: reportConfig.version,
         retrievalMode: reportConfig.retrievalMode || 'Delta',
@@ -419,6 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
           includeDataTable: reportConfig.includeDataTable ?? false,
           specificationLimits: reportConfig.specificationLimits || {},
           retrievalMode: reportConfig.retrievalMode || 'Delta',
+          qualityFilter: reportConfig.qualityFilter,
           advancedFilters: reportConfig.advancedFilters
         }
       };
@@ -488,6 +493,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
           includeSPCCharts: loadedReport.config.includeSPCCharts ?? true,
           includeStatsSummary: loadedReport.config.includeStatsSummary ?? true,
           specificationLimits: loadedReport.config.specificationLimits || {},
+          qualityFilter: loadedReport.config.qualityFilter || [0],
           advancedFilters: loadedReport.config.advancedFilters
         });
         setSavedConfig(response.data.config);
@@ -525,6 +531,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
       includeSPCCharts: versionInfo.config.includeSPCCharts ?? true,
       includeStatsSummary: versionInfo.config.includeStatsSummary ?? true,
       specificationLimits: versionInfo.config.specificationLimits || {},
+      qualityFilter: versionInfo.config.qualityFilter || [0],
       advancedFilters: versionInfo.config.advancedFilters
     });
     setSavedConfig(versionInfo.config);
@@ -557,6 +564,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
       includeSPCCharts: importedConfig.includeSPCCharts ?? true,
       includeStatsSummary: importedConfig.includeStatsSummary ?? true,
       specificationLimits: importedConfig.specificationLimits || {},
+      qualityFilter: importedConfig.qualityFilter || [0],
       advancedFilters: importedConfig.advancedFilters,
     });
 
@@ -945,13 +953,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
                           className="border-none shadow-none p-0"
                         />
 
-                        {/* Advanced Data Filters */}
-                        <div className="pt-4 border-t border-gray-100">
-                          <DataFilterConfig
-                            filters={reportConfig.advancedFilters}
-                            onChange={(filters) => setReportConfig(prev => ({ ...prev, advancedFilters: filters }))}
-                          />
-                        </div>
 
                       </CardContent>
                     </Card>
@@ -991,6 +992,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
                         onIncludeDataTableChange={(value) =>
                           setReportConfig(prev => ({ ...prev, includeDataTable: value }))
                         }
+                        disabled={!reportConfig.tags?.length}
+                      />
+                    </div>
+
+                    {/* Quality Data Filter */}
+                    <div className="space-y-4">
+                      <QualityFilter
+                        selectedQualities={reportConfig.qualityFilter || [0]}
+                        onChange={(qualities) => setReportConfig(prev => ({ ...prev, qualityFilter: qualities }))}
+                        disabled={!reportConfig.tags?.length}
+                      />
+                    </div>
+
+                    {/* Advanced Data Filters */}
+                    <div className="space-y-4">
+                      <DataFilterConfig
+                        filters={reportConfig.advancedFilters}
+                        onChange={(filters) => setReportConfig(prev => ({ ...prev, advancedFilters: filters }))}
                         disabled={!reportConfig.tags?.length}
                       />
                     </div>
@@ -1084,7 +1103,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
                           includeStatsSummary: reportConfig.includeStatsSummary,
                           includeDataTable: reportConfig.includeDataTable,
                           specificationLimits: reportConfig.specificationLimits,
-                          advancedFilters: reportConfig.advancedFilters
+                          advancedFilters: reportConfig.advancedFilters,
+                          qualityFilter: reportConfig.qualityFilter
                         }}
 
                       />
