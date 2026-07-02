@@ -1,14 +1,14 @@
 #!/bin/bash
 # ==============================================================================
-# KagomeReports Autodeploy Script
+# MagnoCorpOTHub Autodeploy Script
 # Checks GitHub for a newer version and updates Kubernetes deployment.
 # ==============================================================================
 
-REPO="ricmagno/KagomeReports"
-NAMESPACE="historian-reports"
-DEPLOYMENT="historian-reports"
-CONTAINER="historian-reports"
-IMAGE_BASE="ghcr.io/ricmagno/kagomereports"
+REPO="ricmagno/MagnoCorpOTHub"
+NAMESPACE="magnocorp-othub"
+DEPLOYMENT="magnocorp-othub"
+CONTAINER="magnocorp-othub"
+IMAGE_BASE="ghcr.io/ricmagno/magnocorpothub"
 
 # 1. Get current version in K8s
 CURRENT_IMAGE=$(kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].image}')

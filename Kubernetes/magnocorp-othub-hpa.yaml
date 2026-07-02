@@ -1,15 +1,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: historian-reports-hpa
-  namespace: historian-reports
+  name: magnocorp-othub-hpa
+  namespace: magnocorp-othub
   labels:
-    app: historian-reports
+    app: magnocorp-othub
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: historian-reports
+    name: magnocorp-othub
   minReplicas: 2
   maxReplicas: 10
   metrics:

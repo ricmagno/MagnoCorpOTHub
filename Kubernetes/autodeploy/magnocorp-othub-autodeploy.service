@@ -1,5 +1,5 @@
 [Unit]
-Description=Kagome Histogram Reports Autodeploy Service
+Description=MagnoCorpOTHub Autodeploy Service
 After=network.target
 
 [Service]

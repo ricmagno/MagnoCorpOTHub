@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: historian-reports
-  namespace: historian-reports
+  name: magnocorp-othub
+  namespace: magnocorp-othub
   labels:
-    app: historian-reports
+    app: magnocorp-othub
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: historian-reports
+      app: magnocorp-othub
   template:
     metadata:
       labels:
-        app: historian-reports
+        app: magnocorp-othub
     spec:
       imagePullSecrets:
         - name: ghcr-regcred
       containers:
-        - name: historian-reports
-          image: ghcr.io/ricmagno/kagomereports:v1.2.34
+        - name: magnocorp-othub
+          image: ghcr.io/ricmagno/magnocorpothub:v1.2.34
           ports:
             - containerPort: 3000
           imagePullPolicy: IfNotPresent
@@ -28,7 +28,7 @@ spec:
               value: "Australia/Sydney"
           envFrom: # Add this section to load env vars from Secret
             - secretRef:
-                name: historian-reports-env
+                name: magnocorp-othub-env
           resources:
             requests:
               cpu: 200m

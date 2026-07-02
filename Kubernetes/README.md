@@ -1,6 +1,6 @@
-# Kubernetes Deployment - KagomeReports
+# Kubernetes Deployment - MagnoCorpOTHub
 
-This directory contains the manifests for deploying the Historian Reports application to a Kubernetes cluster.
+This directory contains the manifests for deploying the MagnoCorpOTHub application to a Kubernetes cluster.
 
 > [!IMPORTANT]
 > For the authoritative system architecture and deployment requirements, consult the [Deployment Specification](../spec/deployment.md).
@@ -10,7 +10,7 @@ This directory contains the manifests for deploying the Historian Reports applic
 ### 1. Configure Namespace
 Apply the namespace manifest:
 ```bash
-kubectl apply -f historian-reports-namespace.yaml
+kubectl apply -f magnocorp-othub-namespace.yaml
 ```
 
 ### 2. Configure GHCR Access (imagePullSecret)
@@ -24,20 +24,20 @@ kubectl create secret docker-registry ghcr-regcred \
   --docker-username=ricmagno \
   --docker-password=<YOUR_GITHUB_PAT> \
   --docker-email=ricmagno@gmail.com \
-  -n historian-reports
+  -n magnocorp-othub
 ```
 
 ### 3. Apply Environment Secrets
-Update `historian-reports-secret.yaml` with your actual database credentials and other secrets, then apply it:
+Update `magnocorp-othub-secret.yaml` with your actual database credentials and other secrets, then apply it:
 ```bash
-kubectl apply -f historian-reports-secret.yaml
+kubectl apply -f magnocorp-othub-secret.yaml
 ```
 
 ### 4. Deploy the Application
 ```bash
-kubectl apply -f historian-reports-deployment.yaml
-kubectl apply -f historian-reports-service.yaml
-kubectl apply -f historian-reports-hpa.yaml
+kubectl apply -f magnocorp-othub-deployment.yaml
+kubectl apply -f magnocorp-othub-service.yaml
+kubectl apply -f magnocorp-othub-hpa.yaml
 ```
 
 ## Automated Deployment (Watchdog)
@@ -57,20 +57,20 @@ To enable zero-manual deployment, set up the "Pull" watchdog on your SCADA serve
     sudo chmod +x /usr/local/bin/autodeploy.sh
 
     # Install systemd service and timer
-    sudo cp ~/Kubernets/autodeploy/historian-autodeploy.* /etc/systemd/system/
+    sudo cp ~/Kubernets/autodeploy/magnocorp-othub-autodeploy.* /etc/systemd/system/
     
     # Enable and start the checker
     sudo systemctl daemon-reload
-    sudo systemctl enable --now historian-autodeploy.timer
+    sudo systemctl enable --now magnocorp-othub-autodeploy.timer
     ```
 
 3.  **Verify**:
     ```bash
     # Check if the timer is active
-    sudo systemctl status historian-autodeploy.timer
+    sudo systemctl status magnocorp-othub-autodeploy.timer
     
     # Run a check immediately to test
-    sudo systemctl start historian-autodeploy.service
+    sudo systemctl start magnocorp-othub-autodeploy.service
     ```
 
 ---

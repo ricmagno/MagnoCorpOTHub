@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: historian-reports-service
-  namespace: historian-reports
+  name: magnocorp-othub-service
+  namespace: magnocorp-othub
   labels:
-    app: historian-reports
+    app: magnocorp-othub
 spec:
   selector:
-    app: historian-reports
+    app: magnocorp-othub
   ports:
     - protocol: TCP
       port: 3000
