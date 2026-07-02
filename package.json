@@ -1,5 +1,5 @@
 {
-  "name": "historian-reports",
+  "name": "magnocorp-othub",
   "version": "1.2.34",
   "description": "Professional reporting application for AVEVA Historian database",
   "main": "electron.js",
@@ -18,7 +18,7 @@
     "test:watch": "jest --watch",
     "test:property": "jest --testNamePattern='Property'",
     "lint": "eslint src/**/*.ts",
-    "docker:build": "docker buildx build --platform linux/amd64,linux/arm64 -t historian-reports .",
+    "docker:build": "docker buildx build --platform linux/amd64,linux/arm64 -t magnocorp-othub .",
     "docker:dev": "docker-compose up --build",
     "setup:db": "tsx scripts/setup-database-configs.ts",
     "test:db": "tsx scripts/test-database-connections.ts",
@@ -119,8 +119,8 @@
     "node": ">=18.0.0"
   },
   "build": {
-    "appId": "com.historianreports.app",
-    "productName": "Historian Reports",
+    "appId": "com.magnocorpothub.app",
+    "productName": "MagnoCorpOTHub",
     "directories": {
       "buildResources": "assets",
       "output": "dist/electron"
@@ -162,7 +162,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Historian Reports"
+      "shortcutName": "MagnoCorpOTHub"
     },
     "mac": {
       "target": [
@@ -194,6 +194,9 @@
   "allowScripts": {
     "canvas@3.2.3": true,
     "better-sqlite3@12.11.1": true,
-    "bcrypt@5.1.1": true
+    "bcrypt@5.1.1": true,
+    "electron@31.7.7": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
   }
 }
