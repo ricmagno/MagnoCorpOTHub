@@ -18,11 +18,11 @@ jobs:
         os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
-            artifact_name: Historian Reports Setup
-            asset_name: historian-reports-setup-windows
+            artifact_name: MagnoCorpOTHub Setup
+            asset_name: magnocorp-othub-setup-windows
           - os: macos-latest
-            artifact_name: Historian Reports
-            asset_name: historian-reports-macos
+            artifact_name: MagnoCorpOTHub
+            asset_name: magnocorp-othub-macos
 
     steps:
       - uses: actions/checkout@v4
