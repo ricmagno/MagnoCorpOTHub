@@ -20,7 +20,7 @@ export class GitHubReleaseService {
   private readonly CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
   private readonly GITHUB_API_BASE = 'api.github.com';
   private readonly GITHUB_OWNER = process.env.GITHUB_OWNER || 'ricmagno';
-  private readonly GITHUB_REPO = process.env.GITHUB_REPO || 'historian-reports';
+  private readonly GITHUB_REPO = process.env.GITHUB_REPO || 'MagnoCorpOTHub';
   private readonly GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   private readonly RATE_LIMIT_REMAINING = 60;
   private readonly RATE_LIMIT_RESET = 3600;
@@ -151,7 +151,7 @@ export class GitHubReleaseService {
           path: url.pathname + url.search,
           method: 'GET',
           headers: {
-            'User-Agent': 'Historian-Reports',
+            'User-Agent': 'MagnoCorpOTHub',
             'Accept': 'application/vnd.github.v3+json'
           }
         };
@@ -221,7 +221,7 @@ export class GitHubReleaseService {
    */
   private async downloadRedirect(urlStr: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      https.get(urlStr, { headers: { 'User-Agent': 'Historian-Reports' } }, (res) => {
+      https.get(urlStr, { headers: { 'User-Agent': 'MagnoCorpOTHub' } }, (res) => {
         if (res.statusCode !== 200) {
           // Handle nested redirects if necessary, but typically one hop
           if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -317,7 +317,7 @@ export class GitHubReleaseService {
     return new Promise((resolve, reject) => {
       try {
         const headers: Record<string, string> = {
-          'User-Agent': 'Historian-Reports',
+          'User-Agent': 'MagnoCorpOTHub',
           'Accept': 'application/vnd.github.v3+json'
         };
 

@@ -37,7 +37,7 @@ const logFormat = winston.format.combine(
 export const logger = winston.createLogger({
   level: env.LOG_LEVEL,
   format: logFormat,
-  defaultMeta: { service: 'historian-reports' },
+  defaultMeta: { service: 'magnocorp-othub' },
   transports: [
     // File transport
     new winston.transports.File({
