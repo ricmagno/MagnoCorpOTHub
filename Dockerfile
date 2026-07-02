@@ -1,5 +1,5 @@
 # ==========================================
-# Historian Reports - Multi-stage Dockerfile
+# MagnoCorpOTHub - Multi-stage Dockerfile
 # Optimized for performance, security, and multi-arch
 # ==========================================
 
@@ -108,7 +108,7 @@ ENV NODE_ENV=production \
     BRANCH_NAME=${BRANCH_NAME}
 
 # Labels for metadata
-LABEL maintainer="Historian Reports Team" \
+LABEL maintainer="MagnoCorpOTHub Team" \
     description="Professional reporting application for AVEVA Historian database" \
     version="1.2.34"
 
