@@ -1,6 +1,6 @@
 # CONTRIBUTING.md - Development Workflow
 
-Welcome to the Historian Reports project! To ensure smooth collaboration and high code quality, please follow these guidelines when contributing.
+Welcome to the MagnoCorpOTHub project! To ensure smooth collaboration and high code quality, please follow these guidelines when contributing.
 
 > [!IMPORTANT]
 > All code changes must conform to the authoritative [API Specification](./spec/api-spec.md) and [Use Cases](./spec/use-cases.md).

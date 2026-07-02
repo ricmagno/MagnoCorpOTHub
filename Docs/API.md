@@ -1,8 +1,8 @@
-# Historian Reports API Documentation
+# MagnoCorpOTHub API Documentation
 
 ## Overview
 
-The Historian Reports API provides endpoints for retrieving and analyzing time-series data from AVEVA Historian databases. The API supports data filtering, statistical analysis, and trend detection.
+The MagnoCorpOTHub API provides endpoints for retrieving and analyzing time-series data from AVEVA Historian databases. The API supports data filtering, statistical analysis, and trend detection.
 
 ## Base URL
 
@@ -208,7 +208,7 @@ Get system information.
   "success": true,
   "data": {
     "application": {
-      "name": "Historian Reports",
+      "name": "MagnoCorpOTHub",
       "version": "1.0.0",
       "environment": "development",
       "uptime": 3600

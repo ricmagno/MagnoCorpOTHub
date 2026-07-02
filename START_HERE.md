@@ -1,6 +1,6 @@
 # 🚀 START HERE - Electron Desktop App Setup
 
-Your Historian Reports app is ready to be packaged as a desktop application. Follow these steps to get started.
+Your MagnoCorpOTHub app is ready to be packaged as a desktop application. Follow these steps to get started.
 
 ## ⚠️ You Got an Error?
 
@@ -69,8 +69,8 @@ npm run electron:build:win
 ```
 
 Creates installers in `dist/electron/`:
-- `Historian Reports Setup 0.65.0.exe` (installer)
-- `Historian Reports 0.65.0.exe` (portable)
+- `MagnoCorpOTHub Setup 0.65.0.exe` (installer)
+- `MagnoCorpOTHub 0.65.0.exe` (portable)
 
 ### For macOS:
 ```bash
@@ -78,8 +78,8 @@ npm run electron:build:mac
 ```
 
 Creates installers in `dist/electron/`:
-- `Historian Reports-0.65.0.dmg` (installer)
-- `Historian Reports-0.65.0.zip` (archive)
+- `MagnoCorpOTHub-0.65.0.dmg` (installer)
+- `MagnoCorpOTHub-0.65.0.zip` (archive)
 
 ### For Both:
 ```bash

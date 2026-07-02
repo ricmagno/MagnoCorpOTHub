@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Historian Reports** is a full-stack reporting platform for **AVEVA (Wonderware) Historian** — an industrial time-series database. It extracts historical tag data via SQL, renders PDF reports and live dashboards, and can be deployed as a web app, Docker container, or Electron desktop app.
+**MagnoCorpOTHub** is a full-stack reporting platform for **AVEVA (Wonderware) Historian** — an industrial time-series database. It extracts historical tag data via SQL, renders PDF reports and live dashboards, and can be deployed as a web app, Docker container, or Electron desktop app.
 
 ## Commands
 

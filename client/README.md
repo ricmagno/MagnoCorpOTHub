@@ -1,6 +1,6 @@
-# Historian Reports - Frontend
+# MagnoCorpOTHub - Frontend
 
-This is the React.js frontend application for the Historian Reports system, providing a professional web interface for generating reports from AVEVA Historian database.
+This is the React.js frontend application for the MagnoCorpOTHub system, providing a professional web interface for generating reports from AVEVA Historian database.
 
 ## Features
 
@@ -126,7 +126,7 @@ The build artifacts will be created in the `build/` directory.
 
 ## Integration with Backend
 
-The frontend is designed to work seamlessly with the Historian Reports backend:
+The frontend is designed to work seamlessly with the MagnoCorpOTHub backend:
 
 - Automatic API error handling and retry logic
 - Real-time data updates for auto-refresh functionality

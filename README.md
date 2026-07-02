@@ -1,4 +1,4 @@
-# Historian Reports Application
+# MagnoCorpOTHub Application
 
 ## Project Overview
 
@@ -124,7 +124,7 @@ This repository is optimized for AI coding agents. If you are using an AI assist
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd KagomeReports
+   cd MagnoCorpOTHub
    ```
 
 2. **Install dependencies**:
