@@ -10,6 +10,8 @@ import { apiLogger } from '@/utils/logger';
 import { asyncHandler, createError } from '@/middleware/errorHandler';
 import { authService } from '@/services/authService';
 import { authenticateToken, requireAdmin } from '@/middleware/auth';
+import { identityProviderService } from '@/services/identityProviderService';
+import { LdapProvider } from '@/services/identity/LdapProvider';
 
 const router = Router();
 
@@ -49,11 +51,23 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   }
 
   const { username, password, rememberMe } = loginResult.data;
-  
+
   apiLogger.info('User login attempt', { username, rememberMe, ip: req.ip });
 
-  const authResult = await authService.authenticate(username, password, rememberMe);
-  
+  // Local accounts always take the local-password path first, so an existing local login
+  // never gets silently retried against a directory. Only usernames with no matching active
+  // local account fall through to LDAP (if configured) — new directory users, in practice.
+  let authResult;
+  if (!authService.hasActiveLocalAccount(username) && identityProviderService.isEnabled('ldap')) {
+    const ldapRecord = identityProviderService.getConfig('ldap')!;
+    const ldapResult = await new LdapProvider(ldapRecord.config).authenticate(username, password);
+    authResult = ldapResult.success
+      ? await authService.completeSsoLogin(ldapResult.profile, 'ldap')
+      : await authService.authenticate(username, password, rememberMe);
+  } else {
+    authResult = await authService.authenticate(username, password, rememberMe);
+  }
+
   if (!authResult.success) {
     throw createError(authResult.error || 'Authentication failed', 401);
   }

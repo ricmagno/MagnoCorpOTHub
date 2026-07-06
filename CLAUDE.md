@@ -84,6 +84,7 @@ React SPA with Tailwind CSS. Feature-based component structure under `client/src
 - `dashboards/` — live dashboard editor, widget/gauge/chart components.
 - `alerts/`, `schedules/`, `users/`, `configuration/` — management UIs.
 - `client/src/services/api.ts` — all fetch calls to the backend; custom hooks in `client/src/hooks/`.
+- `client/src/DESIGN_SYSTEM.md` — canonical button/toggle/form/card patterns. Read this before adding any new settings or configuration panel; it exists because past panels shipped with ad-hoc colors and hand-rolled buttons instead of the shared `Button` component and `primary` theme color.
 
 In production, the backend serves the built React app as static files from `client/build/`.
 

@@ -163,7 +163,10 @@ export class AutoLoginService {
           parentUserId: user.parent_user_id || null,
           isViewOnly: Boolean(user.is_view_only),
           autoLoginEnabled: Boolean(user.auto_login_enabled),
-          requirePasswordChange: Boolean(user.require_password_change)
+          requirePasswordChange: Boolean(user.require_password_change),
+          authProvider: (user.auth_provider || 'local') as 'local' | 'ldap' | 'oidc',
+          externalId: user.external_id || null,
+          externalLastSync: user.external_last_sync ? new Date(user.external_last_sync) : undefined
         },
         token,
         expiresIn: this.autoLoginTokenExpiry

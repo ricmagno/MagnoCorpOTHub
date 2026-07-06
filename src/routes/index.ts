@@ -25,6 +25,7 @@ import configurationRoutes from './configuration';
 import dashboardRoutes from './dashboards';
 import alertRoutes from './alerts';
 import dataManagementRoutes from './dataManagement';
+import identityProviderRoutes from './identityProviders';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/updates', updatesRoutes);
 router.use('/configuration', configurationRoutes);
 router.use('/configuration/data-management', dataManagementRoutes);
 router.use('/alerts', alertRoutes);
+router.use('/identity-providers', identityProviderRoutes);
 
 // API info endpoint
 router.get('/', async (_req, res) => {

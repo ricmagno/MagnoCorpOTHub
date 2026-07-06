@@ -7,7 +7,14 @@ module.exports = {
     '**/?(*.)+(spec|test).ts'
   ],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    // isolatedModules: transpile each file independently instead of building a full
+    // incremental ts.Program. Needed as a workaround for a ts-jest/typescript version
+    // mismatch (installed typescript is newer than ts-jest's LanguageService integration
+    // expects) that otherwise crashes every test suite with
+    // "Cannot read properties of undefined (reading 'sourceFile')" inside
+    // typescript.js's document registry. Type errors are still caught by `tsc --noEmit`
+    // and the editor; this only affects how Jest transpiles test files.
+    '^.+\\.ts$': ['ts-jest', { isolatedModules: true }],
   },
   collectCoverageFrom: [
     'src/**/*.ts',

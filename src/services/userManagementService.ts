@@ -6,9 +6,12 @@
 
 import Database from 'better-sqlite3';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { apiLogger } from '@/utils/logger';
 import { env } from '@/config/environment';
 import { authService } from '@/services/authService';
+import { identityProviderService } from '@/services/identityProviderService';
+import { ExternalUserProfile, IdentityProviderType } from '@/services/identity/IdentityProvider';
 
 export interface UserManagementUser {
   id: string;
@@ -122,6 +125,47 @@ export class UserManagementService {
       return createdUser;
     } catch (error) {
       apiLogger.error('Failed to create user', { error, userData: { ...userData, password: '[REDACTED]' } });
+      throw error;
+    }
+  }
+
+  /**
+   * JIT-provisions a local user record for a successful LDAP/OIDC login. Unlike `createUser()`,
+   * this deliberately does NOT auto-create a `<username>.view` shadow account — that cascade
+   * is a workaround for the local-password "share my login as read-only" use case and has no
+   * clear meaning for a directory identity. It's superseded long-term by directory group ->
+   * role mapping (not implemented yet). Do not "fix" this as a bug.
+   */
+  async createSsoUser(profile: ExternalUserProfile, provider: IdentityProviderType): Promise<UserResponse> {
+    try {
+      const providerConfig = identityProviderService.getConfig(provider);
+      const role: 'user' | 'view-only' = providerConfig?.defaultRole ?? 'view-only';
+
+      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // SSO users authenticate against the directory, never with a local password. Store a
+      // bcrypt hash of unguessable random bytes so no plaintext password can ever match it.
+      const unusablePassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(unusablePassword, env.BCRYPT_ROUNDS);
+
+      this.db.prepare(`
+        INSERT INTO users (
+          id, username, email, first_name, last_name, role, password_hash,
+          is_active, is_view_only, parent_user_id, auto_login_enabled, require_password_change,
+          auth_provider, external_id, external_last_sync
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(
+        userId, profile.username, profile.email, profile.firstName, profile.lastName, role, passwordHash,
+        1, 0, null, 0, 0,
+        provider, profile.externalId
+      );
+
+      apiLogger.info('SSO user JIT-provisioned', { userId, username: profile.username, provider, role });
+
+      const createdUser = await this.getUser(userId);
+      if (!createdUser) throw new Error('Failed to retrieve created SSO user');
+      return createdUser;
+    } catch (error) {
+      apiLogger.error('Failed to create SSO user', { error, username: profile.username, provider });
       throw error;
     }
   }
