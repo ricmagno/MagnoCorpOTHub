@@ -110,7 +110,7 @@ ENV NODE_ENV=production \
 # Labels for metadata
 LABEL maintainer="MagnoCorpOTHub Team" \
     description="Professional reporting application for AVEVA Historian database" \
-    version="1.2.34"
+    version="1.2.35"
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
