@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to deploy a new historian-reports instance
+# Script to deploy a new magnocorp-othub instance
 # Usage: ./deploy-instance.sh <instance-name> <node-port>
 # Example: ./deploy-instance.sh plant1 30001
 
@@ -14,7 +14,7 @@ INSTANCE_NAME=$1
 NODE_PORT=$2
 PORT_NUMBER=$((NODE_PORT - 30000 + 3001))
 
-echo "Deploying historian-reports instance: $INSTANCE_NAME"
+echo "Deploying magnocorp-othub instance: $INSTANCE_NAME"
 echo "Node Port: $NODE_PORT"
 echo "CORS Origin Port: $PORT_NUMBER"
 
@@ -32,5 +32,5 @@ echo "Instance $INSTANCE_NAME deployed successfully!"
 echo "Access URL: http://$(hostname -I | awk '{print $1}'):$NODE_PORT"
 echo ""
 echo "To check status:"
-echo "kubectl get pods -n historian-reports -l instance=$INSTANCE_NAME"
-echo "kubectl logs -n historian-reports -l instance=$INSTANCE_NAME"
+echo "kubectl get pods -n magnocorp-othub -l instance=$INSTANCE_NAME"
+echo "kubectl logs -n magnocorp-othub -l instance=$INSTANCE_NAME"
