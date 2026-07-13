@@ -1,6 +1,6 @@
 {
   "name": "magnocorp-othub",
-  "version": "1.2.36",
+  "version": "1.2.37",
   "description": "MagnoCorpOTHub: the unified OT reporting and analytics platform for industrial automation",
   "main": "dist/server.js",
   "scripts": {
