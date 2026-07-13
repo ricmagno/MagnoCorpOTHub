@@ -1,0 +1,104 @@
+# Single-replica Postgres (TimescaleDB + pgvector) for TEVE (Tensor Embedding Vector Engine), matching
+# the single-node hostPath-volume style already used by magnocorp-othub-deployment.yaml.
+# Before applying, create the init-sql ConfigMap from the schema file already in the repo:
+#   kubectl create configmap historian-init-sql -n magnocorp-othub \
+#     --from-file=init.sql=database/init.sql
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: historian-postgres
+  namespace: magnocorp-othub
+  labels:
+    app: historian-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single hostPath volume — never run two Postgres pods concurrently
+  selector:
+    matchLabels:
+      app: historian-postgres
+  template:
+    metadata:
+      labels:
+        app: historian-postgres
+    spec:
+      # fsGroup alone does not reliably chown hostPath volumes before container start (a known
+      # k8s limitation), and timescale/timescaledb-ha's postgres process (uid/gid 1000) cannot
+      # chown its own data dir when it's freshly created by kubelet as root:root — initdb then
+      # fails with "could not change permissions of directory ... Operation not permitted".
+      # This initContainer runs as root once, before postgres starts, to fix ownership.
+      initContainers:
+        - name: fix-data-dir-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 1000:1000 /home/postgres/pgdata/data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: historian-postgres-data
+              mountPath: /home/postgres/pgdata/data
+      containers:
+        - name: postgres
+          image: timescale/timescaledb-ha:pg16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "historian"
+            - name: POSTGRES_DB
+              value: "historian_db"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: historian-env
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "historian"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "historian"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          volumeMounts:
+            - name: historian-postgres-data
+              mountPath: /home/postgres/pgdata/data
+            - name: historian-init-sql
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      volumes:
+        - name: historian-postgres-data
+          hostPath:
+            path: /mnt/historian-tensor/postgres
+            type: DirectoryOrCreate
+        - name: historian-init-sql
+          configMap:
+            name: historian-init-sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: historian-postgres
+  namespace: magnocorp-othub
+  labels:
+    app: historian-postgres
+spec:
+  selector:
+    app: historian-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP

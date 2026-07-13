@@ -5,7 +5,7 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import reportWebVitals from './reportWebVitals';
 
-console.log('Historian Reports Client Starting...', {
+console.log('MagnoCorpOTHub Client Starting...', {
   env: process.env.NODE_ENV,
   apiUrl: process.env.REACT_APP_API_URL
 });

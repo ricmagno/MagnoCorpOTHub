@@ -1,6 +1,6 @@
 # Use Cases Spec
 
-This document defines the authoritative use cases for the Historian Reports application.
+This document defines the authoritative use cases for the MagnoCorpOTHub application.
 
 ## 1. Data Retrieval
 - **Description**: Users or automated services query historical data from AVEVA Historian or real-time data from OPC UA servers.
@@ -10,7 +10,7 @@ This document defines the authoritative use cases for the Historian Reports appl
 ## 2. Report Generation
 - **Description**: The system generates PDF reports based on user-defined configurations (tags, time ranges, chart types).
 - **Goal**: Produce a professional, printable document.
-- **Constraints**: Must handle large datasets cleanly without crashing the Electron process.
+- **Constraints**: Must handle large datasets cleanly without exhausting server memory.
 
 ### 3. Automated Scheduling
 - **Description**: Reports are triggered automatically by a cron-based scheduler.

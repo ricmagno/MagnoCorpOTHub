@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: magnocorp-othub-ingress
+  namespace: magnocorp-othub
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+  - hosts:
+    - reports.kagome.com.au
+    secretName: kagome-reports-tls
+  rules:
+  - host: reports.kagome.com.au
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: magnocorp-othub-service
+            port:
+              number: 3000

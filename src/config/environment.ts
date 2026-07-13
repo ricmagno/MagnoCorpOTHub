@@ -32,7 +32,7 @@ const envSchema = z.object({
   REDIS_PORT: z.string().default('6379').transform(val => parseInt(val, 10)),
   REDIS_PASSWORD: z.string().optional(),
   REDIS_DB: z.string().default('0').transform(val => parseInt(val, 10)),
-  CACHE_KEY_PREFIX: z.string().default('historian-reports'),
+  CACHE_KEY_PREFIX: z.string().default('magnocorp-othub'),
   CACHE_DEFAULT_TTL: z.string().default('300').transform(val => parseInt(val, 10)), // 5 minutes
 
   // Performance Configuration

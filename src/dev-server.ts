@@ -1,5 +1,5 @@
 /**
- * Development server for Historian Reports
+ * Development server for MagnoCorpOTHub
  * Runs without requiring AVEVA Historian database connection
  */
 
@@ -129,7 +129,7 @@ const PORT = env.PORT || 3000;
 
 async function startDevServer(): Promise<void> {
   try {
-    logger.info('Starting Historian Reports Development Server...');
+    logger.info('Starting MagnoCorpOTHub Development Server...');
     logger.info('Running in development mode without database dependencies');
     
     const server = app.listen(PORT, () => {

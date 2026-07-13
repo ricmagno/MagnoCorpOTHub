@@ -23,6 +23,12 @@ Stores global application settings.
 - `key`: Unique setting name (e.g., `SMTP_HOST`).
 - `value`: Setting value.
 
+### `site_settings` (in `auth.db`)
+Stores branding and white-label settings. Managed by `brandingService.ts`.
+- `key`: Setting name. Known keys: `companyName`, `appName`, `siteName`, `primaryColor`, `accentColor`, `website`, `reportFooter`, `emailSenderName`, `logo` (base64 data URL).
+- `value`: Setting value.
+- `updated_at`: Last modification timestamp.
+
 ## 🏭 Historian Database (AVEVA / External)
 Accessed via read-only SQL connections.
 - **Live Table**: Real-time snapshots.

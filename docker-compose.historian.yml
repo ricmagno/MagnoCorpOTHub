@@ -1,0 +1,55 @@
+services:
+  postgres:
+    # timescaledb-ha includes BOTH TimescaleDB and pgvector
+    image: timescale/timescaledb-ha:pg16
+    container_name: historian_postgres
+    environment:
+      POSTGRES_USER: historian
+      POSTGRES_PASSWORD: historian_pwd
+      POSTGRES_DB: historian_db
+    ports: ["5432:5432"]
+    volumes:
+      - postgres_data:/home/postgres/pgdata/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U historian"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: historian_redis
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: historian_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
+    command: server /data --console-address ":9001"
+
+  # One-shot: create the bucket on startup
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/historian-data;
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

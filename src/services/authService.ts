@@ -12,6 +12,8 @@ import fs from 'fs';
 import { apiLogger } from '@/utils/logger';
 import { env, getDatabasePath } from '@/config/environment';
 import { encryptionService } from '@/services/encryptionService';
+import { userManagementService } from '@/services/userManagementService';
+import { ExternalUserProfile, IdentityProviderType } from '@/services/identity/IdentityProvider';
 
 export interface User {
   id: string;
@@ -29,6 +31,9 @@ export interface User {
   isViewOnly: boolean;
   autoLoginEnabled: boolean;
   requirePasswordChange: boolean;
+  authProvider: 'local' | 'ldap' | 'oidc';
+  externalId?: string | null;
+  externalLastSync?: Date | undefined;
 }
 
 export interface UserSession {
@@ -151,7 +156,10 @@ export class AuthService {
       { name: 'is_view_only', type: 'BOOLEAN DEFAULT 0' },
       { name: 'parent_user_id', type: 'TEXT' },
       { name: 'auto_login_enabled', type: 'BOOLEAN DEFAULT 0' },
-      { name: 'require_password_change', type: 'BOOLEAN DEFAULT 0' }
+      { name: 'require_password_change', type: 'BOOLEAN DEFAULT 0' },
+      { name: 'auth_provider', type: "TEXT DEFAULT 'local'" },
+      { name: 'external_id', type: 'TEXT' },
+      { name: 'external_last_sync', type: 'DATETIME' }
     ];
     for (const migration of migrations) {
       if (!columnNames.includes(migration.name)) {
@@ -163,6 +171,12 @@ export class AuthService {
         }
       }
     }
+
+    // Prevents the same directory account from being JIT-provisioned twice under a race.
+    this.db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_external
+      ON users(auth_provider, external_id) WHERE external_id IS NOT NULL
+    `);
 
     this.createDefaultPermissions();
     apiLogger.info('Authentication database initialized and tables created');
@@ -221,17 +235,75 @@ export class AuthService {
         return { success: false, error: 'Invalid username or password' };
       }
 
-      const expiresIn = rememberMe ? this.refreshTokenExpiry : this.tokenExpiry;
-      const token = this.generateToken(user, expiresIn);
-      this.createSession(user.id, token, expiresIn);
-      this.updateLastLogin(user.id);
       await this.logAuditEvent(user.id, 'login_success', 'auth', 'User logged in successfully');
-
-      const { passwordHash, ...userWithoutPassword } = user;
-      return { success: true, user: userWithoutPassword, token, expiresIn };
+      return this.issueSession(user, rememberMe);
     } catch (error) {
       apiLogger.error('Authentication failed', { error, usernameOrEmail });
       return { success: false, error: 'Authentication failed' };
+    }
+  }
+
+  /**
+   * Issues a token + server-tracked session for an already-authenticated user, and updates
+   * their last-login timestamp. This is the sole exit point both local password auth
+   * (`authenticate()`) and SSO auth (`completeSsoLogin()`) funnel through, so an SSO-issued
+   * JWT is indistinguishable from a local one at verification time (`verifyToken()`) — no
+   * changes are needed anywhere else (middleware, logout, session revocation) to support SSO.
+   */
+  private issueSession(user: User, rememberMe: boolean): AuthResult {
+    const expiresIn = rememberMe ? this.refreshTokenExpiry : this.tokenExpiry;
+    const token = this.generateToken(user, expiresIn);
+    this.createSession(user.id, token, expiresIn);
+    this.updateLastLogin(user.id);
+
+    const { passwordHash, ...userWithoutPassword } = user;
+    return { success: true, user: userWithoutPassword, token, expiresIn };
+  }
+
+  /**
+   * Completes an SSO login (LDAP bind success or OIDC callback) given a normalized external
+   * profile. JIT-provisions a local user record on first login; reuses the identical
+   * token-issuing path as local login on subsequent ones.
+   *
+   * Deliberately does NOT fall back to matching an existing *local* account by email/username
+   * — a directory account with a matching email could otherwise silently take over a
+   * pre-existing local account (including potentially an admin one). Account linking, if ever
+   * needed, should be an explicit admin action, not automatic.
+   */
+  async completeSsoLogin(profile: ExternalUserProfile, provider: IdentityProviderType): Promise<AuthResult> {
+    try {
+      const existingRow = this.db.prepare(
+        'SELECT * FROM users WHERE auth_provider = ? AND external_id = ? AND is_active = 1'
+      ).get(provider, profile.externalId) as any;
+
+      if (existingRow) {
+        const user = this.rowToUser(existingRow);
+        this.db.prepare(`UPDATE users SET external_last_sync = datetime('now') WHERE id = ?`).run(user.id);
+        await this.logAuditEvent(user.id, 'login_success', 'auth', `User logged in via ${provider} SSO`);
+        return this.issueSession(user, false);
+      }
+
+      const conflictRow = this.db.prepare(
+        `SELECT id FROM users WHERE auth_provider = 'local' AND (username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)`
+      ).get(profile.username, profile.email) as any;
+
+      if (conflictRow) {
+        await this.logAuditEvent(
+          null, 'sso_login_conflict', 'auth',
+          `SSO login blocked: a local account already exists for ${profile.username}/${profile.email}`
+        );
+        return { success: false, error: 'account_conflict' };
+      }
+
+      const newUser = await userManagementService.createSsoUser(profile, provider);
+      const fullUser = await this.getUserById(newUser.id);
+      if (!fullUser) return { success: false, error: 'Failed to provision user' };
+
+      await this.logAuditEvent(fullUser.id, 'sso_user_provisioned', 'auth', `User JIT-provisioned via ${provider} SSO`);
+      return this.issueSession(fullUser, false);
+    } catch (error) {
+      apiLogger.error('SSO login failed', { error, provider, externalId: profile.externalId });
+      return { success: false, error: 'SSO authentication failed' };
     }
   }
 
@@ -307,6 +379,19 @@ export class AuthService {
   async getUserById(userId: string): Promise<User | null> {
     const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
     return row ? this.rowToUser(row) : null;
+  }
+
+  /**
+   * Used by the login route to decide whether to attempt local password auth or fall through
+   * to an SSO provider — a lightweight existence check, not an auth decision itself. Local
+   * accounts always take this path first so existing local logins never get silently retried
+   * against a directory (no behavior change for local users once SSO is configured).
+   */
+  hasActiveLocalAccount(usernameOrEmail: string): boolean {
+    const row = this.db.prepare(
+      `SELECT 1 FROM users WHERE (username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE) AND auth_provider = 'local' AND is_active = 1`
+    ).get(usernameOrEmail, usernameOrEmail);
+    return !!row;
   }
 
   async hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
@@ -440,7 +525,10 @@ export class AuthService {
       parentUserId: row.parent_user_id || null,
       isViewOnly: Boolean(row.is_view_only),
       autoLoginEnabled: Boolean(row.auto_login_enabled),
-      requirePasswordChange: Boolean(row.require_password_change)
+      requirePasswordChange: Boolean(row.require_password_change),
+      authProvider: (row.auth_provider || 'local') as 'local' | 'ldap' | 'oidc',
+      externalId: row.external_id || null,
+      externalLastSync: row.external_last_sync ? new Date(row.external_last_sync) : undefined
     };
   }
 }

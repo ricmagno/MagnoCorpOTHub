@@ -1,6 +1,6 @@
 # Code Quality Audit Report
 **Date:** February 11, 2026  
-**Project:** Historian Reports Application  
+**Project:** MagnoCorpOTHub Application  
 **Scope:** Frontend (React/TypeScript) and Backend (Node.js/TypeScript)
 
 ---

@@ -13,6 +13,7 @@ import { Readable, Transform } from 'stream';
 import { pipeline } from 'stream/promises';
 import { TimeSeriesData, TagInfo, TimeRange, DataFilter, QueryResult, HistorianQueryOptions, RetrievalMode, QualityCode, StatisticsResult, FilterCondition } from '@/types/historian';
 import { opcuaService } from './opcuaService';
+import { teveConfigService } from './teveConfigService';
 
 function historicalTTL(endTime: Date): number {
   const ageMs = Date.now() - endTime.getTime();
@@ -56,6 +57,12 @@ export class DataRetrievalService {
     // 1. Check for OPC UA tags
     if (tagName.startsWith('opcua:')) {
       return this.getOpcuaTimeSeriesData(tagName, timeRange, options);
+    }
+
+    // 2. Check for TEVE tags — a separate, optional, admin-configured
+    // alternative/parallel historian (see teveConfigService). Not the AVEVA connection.
+    if (tagName.startsWith('tensor:')) {
+      return this.getTensorTimeSeriesData(tagName, timeRange);
     }
 
     try {
@@ -269,6 +276,19 @@ export class DataRetrievalService {
     tagName: string,
     timeRange: TimeRange
   ): Promise<StatisticsResult> {
+    // TEVE has no SQL aggregate endpoint of its own — fetch the raw
+    // points (already routed correctly) and compute stats the same way report
+    // generation does for provided-but-uncomputed tags (statisticalAnalysisService).
+    if (tagName.startsWith('tensor:')) {
+      this.validateTimeRange(timeRange);
+      const data = await this.getTensorTimeSeriesData(tagName, timeRange);
+      if (data.length === 0) {
+        return { average: 0, min: 0, max: 0, median: 0, standardDeviation: 0, count: 0, dataQuality: 0 };
+      }
+      const { statisticalAnalysisService } = await import('./statisticalAnalysis');
+      return statisticalAnalysisService.calculateStatisticsSync(data);
+    }
+
     try {
       this.validateTimeRange(timeRange);
       this.validateTagName(tagName);
@@ -469,9 +489,10 @@ export class DataRetrievalService {
     try {
       dbLogger.info('Retrieving multiple time-series data', { tagNames, timeRange });
 
-      // Split Historian and OPC UA tags
-      const historianTags = tagNames.filter(t => !t.startsWith('opcua:'));
+      // Split Historian, OPC UA, and TEVE tags
+      const historianTags = tagNames.filter(t => !t.startsWith('opcua:') && !t.startsWith('tensor:'));
       const opcuaTags = tagNames.filter(t => t.startsWith('opcua:'));
+      const tensorTags = tagNames.filter(t => t.startsWith('tensor:'));
 
       const results: Record<string, TimeSeriesData[]> = {};
 
@@ -511,6 +532,24 @@ export class DataRetrievalService {
         });
       }
 
+      // Handle TEVE tags if any
+      if (tensorTags.length > 0) {
+        const tensorPromises = tensorTags.map(async (tagName) => {
+          try {
+            const data = await this.getTensorTimeSeriesData(tagName, timeRange);
+            return { tagName, data };
+          } catch (error) {
+            dbLogger.warn(`TEVE tag query failed: ${tagName}`, { error });
+            return { tagName, data: [] };
+          }
+        });
+
+        const tensorResults = await Promise.all(tensorPromises);
+        tensorResults.forEach(result => {
+          results[result.tagName] = result.data;
+        });
+      }
+
       if (operationId) {
         progressTracker.completeOperation(operationId, `Retrieved data for ${Object.keys(results).length}/${tagNames.length} tags`);
       }
@@ -540,7 +579,9 @@ export class DataRetrievalService {
 
         if (cachedTags) {
           dbLogger.debug(`Cache hit for tag list${filter ? ` with filter: ${filter}` : ''}`);
-          return cachedTags;
+          // TEVE's enabled/configured state can change independently of the
+          // AVEVA tag cache TTL, so it's always fetched fresh rather than cached here.
+          return [...cachedTags, ...this.filterTensorTags(await this.getTensorTagList(), filter)];
         }
       }
 
@@ -591,7 +632,8 @@ export class DataRetrievalService {
         maxValue: row.maxValue
       }));
 
-      // Cache the result if caching is enabled
+      // Cache the result if caching is enabled (AVEVA tags only — see the fresh-fetch
+      // note on the cache-hit path above for why Tensor tags aren't cached here)
       if (this.cacheService && tagInfos.length > 0) {
         if (filter) {
           await this.cacheService.cacheFilteredTags(filter, tagInfos);
@@ -600,8 +642,11 @@ export class DataRetrievalService {
         }
       }
 
-      dbLogger.info(`Retrieved ${tagInfos.length} tags`);
-      return tagInfos;
+      const tensorTags = this.filterTensorTags(await this.getTensorTagList(), filter);
+      const allTags = [...tagInfos, ...tensorTags];
+
+      dbLogger.info(`Retrieved ${allTags.length} tags (${tagInfos.length} AVEVA, ${tensorTags.length} Tensor)`);
+      return allTags;
 
     } catch (error) {
       dbLogger.error('Failed to retrieve tag list:', error);
@@ -613,6 +658,22 @@ export class DataRetrievalService {
    * Get metadata for a specific tag
    */
   async getTagInfo(tagName: string): Promise<TagInfo | null> {
+    if (tagName.startsWith('tensor:')) {
+      // TEVE doesn't carry AVEVA-style tag metadata (engineering units
+      // catalog, min/max range) — the identifier itself (tensor:System.TagName) plus
+      // whatever unit came back from /api/teve/tags is all there is.
+      const tags = await this.getTensorTagList();
+      const match = tags.find(t => t.name === tagName);
+      if (match) return match;
+      return {
+        name: tagName,
+        description: '',
+        units: '',
+        dataType: 'analog',
+        lastUpdate: new Date(),
+        dataSource: 'tensor'
+      };
+    }
     if (tagName.startsWith('opcua:')) {
       try {
         const nodeId = tagName.replace('opcua:', '');
@@ -856,6 +917,115 @@ export class DataRetrievalService {
       dbLogger.warn('Failed to read OPC UA value', { tagName, error: error instanceof Error ? error.message : 'Unknown error' });
       return [];
     }
+  }
+
+  /**
+   * Helper to retrieve time-series data from TEVE — a separate, optional,
+   * admin-configured historian (see teveConfigService), reached only via its configured
+   * baseUrl (never a direct DB connection, same boundary as the browser-facing proxy).
+   * Tag identifier format: tensor:<scadaSystemId>.<tagName>.
+   */
+  private async getTensorTimeSeriesData(
+    tagName: string,
+    timeRange: TimeRange
+  ): Promise<TimeSeriesData[]> {
+    const baseUrl = teveConfigService.getActiveBaseUrl();
+    if (!baseUrl) {
+      dbLogger.warn('TEVE tag requested but the service is not enabled/configured', { tagName });
+      return [];
+    }
+
+    const tag = tagName.replace('tensor:', '');
+    if (!tag.includes('.')) {
+      dbLogger.warn('Invalid TEVE tag format, expected tensor:System.TagName', { tagName });
+      return [];
+    }
+
+    try {
+      const params = new URLSearchParams({
+        tag,
+        from: timeRange.startTime.toISOString(),
+        to: timeRange.endTime.toISOString()
+      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15_000);
+      let res: Response;
+      try {
+        res = await fetch(`${baseUrl}/api/teve/data?${params.toString()}`, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (!res.ok) {
+        dbLogger.warn(`TEVE data request returned ${res.status}`, { tagName });
+        return [];
+      }
+      const body = await res.json() as { data: Array<{ DateTime: string; Value: number | null; Status: string }> };
+      const { getQualityLabel, getQualityMeaning } = require('@/utils/qualityUtils');
+
+      return body.data
+        .filter(row => row.Value !== null)
+        .map(row => {
+          const quality = row.Status === 'Good' ? QualityCode.Good : QualityCode.Bad;
+          return {
+            timestamp: new Date(row.DateTime),
+            value: Number(row.Value),
+            quality,
+            qualityLabel: getQualityLabel(quality),
+            qualityMeaning: getQualityMeaning(quality),
+            tagName,
+            dataSource: 'tensor' as const
+          };
+        })
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    } catch (error) {
+      dbLogger.warn('Failed to read TEVE data', { tagName, error: error instanceof Error ? error.message : 'Unknown error' });
+      return [];
+    }
+  }
+
+  /**
+   * List available TEVE tags (tensor:<scadaSystemId>.<tagName>), for use
+   * alongside AVEVA tags in report/dashboard tag pickers. Returns [] when the service
+   * is disabled/unconfigured or unreachable — never throws, so callers merging this
+   * into a broader tag list don't need special-case handling.
+   */
+  async getTensorTagList(): Promise<TagInfo[]> {
+    const baseUrl = teveConfigService.getActiveBaseUrl();
+    if (!baseUrl) return [];
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      let res: Response;
+      try {
+        res = await fetch(`${baseUrl}/api/teve/tags`, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (!res.ok) {
+        dbLogger.warn(`TEVE tag list request returned ${res.status}`);
+        return [];
+      }
+      const body = await res.json() as { tags: Array<{ tag_id: string; tag_unit: string | null }> };
+      return body.tags.map(t => ({
+        name: `tensor:${t.tag_id}`,
+        description: '',
+        units: t.tag_unit || '',
+        dataType: 'analog' as const,
+        lastUpdate: new Date(),
+        dataSource: 'tensor' as const
+      }));
+    } catch (error) {
+      dbLogger.warn('Failed to retrieve TEVE tag list', { error: error instanceof Error ? error.message : 'Unknown error' });
+      return [];
+    }
+  }
+
+  /** Case-insensitive substring match on name, mirroring the AVEVA tag-list filter's semantics. */
+  private filterTensorTags(tags: TagInfo[], filter?: string): TagInfo[] {
+    if (!filter) return tags;
+    const needle = filter.toUpperCase();
+    return tags.filter(t => t.name.toUpperCase().includes(needle));
   }
 
   /**

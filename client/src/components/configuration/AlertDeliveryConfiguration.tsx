@@ -216,7 +216,7 @@ const EmailTab: React.FC = () => {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Sender Identity</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {textField('From Name', 'fromName', 'text', 'Historian Reports')}
+          {textField('From Name', 'fromName', 'text', 'MagnoCorpOTHub')}
           {textField('From Email', 'fromEmail', 'email', 'alerts@example.com')}
         </div>
         <p className="mt-2 text-xs text-gray-500">If left blank, the username above is used as the sender address.</p>

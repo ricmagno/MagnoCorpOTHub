@@ -1,0 +1,94 @@
+# ==========================================
+# Tensor Historian — multi-stage Dockerfile
+# Two final targets built from one image: production-api / production-worker.
+# Build with: docker build -f Dockerfile.historian --target production-api  -t historian-api .
+#             docker build -f Dockerfile.historian --target production-worker -t historian-worker .
+# ==========================================
+
+FROM node:20-bookworm-slim AS base
+
+# Chromium runtime deps (Puppeteer) + canvas/sharp build deps
+RUN apt-get update && apt-get install -y \
+    python3 build-essential pkg-config \
+    libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+    ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 \
+    libatspi2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
+    libpango-1.0-0 libx11-6 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
+    libxkbcommon0 libxrandr2 xdg-utils libu2f-udev libvulkan1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# --- Stage 1: install deps + compile TypeScript (includes src/historian/**) ---
+# Skips Puppeteer's Chromium download — this stage only runs tsc, never launches a browser.
+FROM base AS builder
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+COPY package*.json ./
+RUN for i in 1 2 3 4 5; do npm install --legacy-peer-deps && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+COPY tsconfig.json ./
+COPY src ./src
+COPY scripts ./scripts
+RUN npm run build
+
+# --- Stage 2a: production deps for the API image (needs Puppeteer's Chromium for capture) ---
+FROM base AS prod-deps-api
+COPY package*.json ./
+RUN for i in 1 2 3 4 5; do npm install --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+
+# --- Stage 2b: production deps for the worker image — never launches a browser,
+#     so skip the Chromium download entirely (smaller image, one less network dependency). ---
+FROM base AS prod-deps-worker
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+COPY package*.json ./
+RUN for i in 1 2 3 4 5; do npm install --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+
+# --- Stage 3: pre-download the CLIP model so worker pods need no runtime internet
+#     egress — required for air-gapped plant-network deployments. Build machines have
+#     internet; the resulting cache is baked into the worker image only. ---
+FROM builder AS model-warmup
+ENV HISTORIAN_MODEL_CACHE_DIR=/app/.model-cache
+RUN npm run historian:warmup-model
+
+# --- Stage 4a: API image — needs Chromium for capture AND the model cache for
+#     /teve/search (CLIP text encoder, loaded lazily on first search) ---
+FROM node:20-bookworm-slim AS production-api
+RUN apt-get update && apt-get install -y \
+    ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 \
+    libatspi2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
+    libpango-1.0-0 libx11-6 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
+    libxkbcommon0 libxrandr2 xdg-utils libu2f-udev libvulkan1 curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m historian
+WORKDIR /app
+COPY --from=prod-deps-api --chown=historian:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=historian:nodejs /app/dist ./dist
+COPY --from=builder --chown=historian:nodejs /app/package.json ./package.json
+COPY --from=model-warmup --chown=historian:nodejs /app/.model-cache ./.model-cache
+USER historian
+ENV NODE_ENV=production \
+    HISTORIAN_PORT=3100 \
+    HISTORIAN_MODEL_CACHE_DIR=/app/.model-cache \
+    HISTORIAN_ALLOW_REMOTE_MODELS=false
+EXPOSE 3100
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:3100/health || exit 1
+CMD ["node", "dist/historian/api.js"]
+
+# --- Stage 4b: worker image — CLIP model baked in, no Chromium needed ---
+FROM node:20-bookworm-slim AS production-worker
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m historian
+WORKDIR /app
+COPY --from=prod-deps-worker --chown=historian:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=historian:nodejs /app/dist ./dist
+COPY --from=builder --chown=historian:nodejs /app/package.json ./package.json
+COPY --from=model-warmup --chown=historian:nodejs /app/.model-cache ./.model-cache
+USER historian
+ENV NODE_ENV=production \
+    HISTORIAN_WORKER_HEALTH_PORT=3101 \
+    HISTORIAN_MODEL_CACHE_DIR=/app/.model-cache \
+    HISTORIAN_ALLOW_REMOTE_MODELS=false
+EXPOSE 3101
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3101/health || exit 1
+CMD ["node", "dist/historian/worker.js"]

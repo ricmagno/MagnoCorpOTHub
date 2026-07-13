@@ -139,9 +139,17 @@ export class ChartGenerationService {
       const workerOpts: Record<string, unknown> = { workerData: { method, args } };
       if (isDev) workerOpts['execArgv'] = ['--require', 'tsx/cjs'];
       const worker = new Worker(workerPath, workerOpts as any);
-      worker.on('message', (msg: { ok: boolean; buffer?: T; error?: string }) => {
-        if (msg.ok) resolve(msg.buffer as T);
-        else reject(new Error(msg.error));
+      worker.on('message', (msg: { ok: boolean; buffer?: unknown; error?: string }) => {
+        if (msg.ok) {
+          // postMessage structured-clones a Buffer into a plain Uint8Array on
+          // the receiving end — reconstruct it so `instanceof Buffer` holds.
+          const buf = msg.buffer instanceof Uint8Array && !Buffer.isBuffer(msg.buffer)
+            ? Buffer.from(msg.buffer)
+            : msg.buffer;
+          resolve(buf as T);
+        } else {
+          reject(new Error(msg.error));
+        }
       });
       worker.on('error', reject);
       worker.on('exit', (code) => {
@@ -1171,90 +1179,96 @@ export class ChartGenerationService {
       const { statisticalAnalysisService } = await import('./statisticalAnalysis');
       const { classifyTag } = await import('./tagClassificationService');
 
-      // First pass: compute all chart configs synchronously (fast — no canvas work)
-      const analogDatasets: LineChartData[] = [];
-      const lineChartTasks: Array<{ key: string; datasets: LineChartData[]; opts: ChartOptions }> = [];
+      // Per-tag (and combined Multi-Trend) line charts are their own chart type —
+      // only build/render them when the caller actually requested 'line'. This block
+      // used to run unconditionally, so a report configured for e.g. chartTypes=['trend']
+      // alone would silently get line charts it never asked for.
+      if (chartTypes.includes('line')) {
+        // First pass: compute all chart configs synchronously (fast — no canvas work)
+        const analogDatasets: LineChartData[] = [];
+        const lineChartTasks: Array<{ key: string; datasets: LineChartData[]; opts: ChartOptions }> = [];
 
-      for (const [tagName, tagData] of Object.entries(data)) {
-        if (tagData.length > 0) {
-          const classification = classifyTag(tagData);
-          const chartData: LineChartData = {
-            tagName,
-            data: tagData,
-            color: this.getStableTagColor(tagName, options.tags || Object.keys(data))
-          };
+        for (const [tagName, tagData] of Object.entries(data)) {
+          if (tagData.length > 0) {
+            const classification = classifyTag(tagData);
+            const chartData: LineChartData = {
+              tagName,
+              data: tagData,
+              color: this.getStableTagColor(tagName, options.tags || Object.keys(data))
+            };
 
-          if (classification.type === 'analog') {
-            if (options.includeTrendLines && tagData.length >= 3) {
-              try {
-                chartData.trendLine = statisticalAnalysisService.calculateAdvancedTrendLine(tagData);
-              } catch (e) {
-                reportLogger.warn(`Trend calc failed for ${tagName}`, { error: e instanceof Error ? e.message : String(e) });
+            if (classification.type === 'analog') {
+              if (options.includeTrendLines && tagData.length >= 3) {
+                try {
+                  chartData.trendLine = statisticalAnalysisService.calculateAdvancedTrendLine(tagData);
+                } catch (e) {
+                  reportLogger.warn(`Trend calc failed for ${tagName}`, { error: e instanceof Error ? e.message : String(e) });
+                }
               }
-            }
 
-            if (statistics && statistics[tagName]) {
-              chartData.statistics = {
-                min: statistics[tagName]!.min,
-                max: statistics[tagName]!.max,
-                mean: statistics[tagName]!.average,
-                stdDev: statistics[tagName]!.standardDeviation
-              };
-            } else {
-              try {
-                const stats = statisticalAnalysisService.calculateStatisticsSync(tagData);
+              if (statistics && statistics[tagName]) {
                 chartData.statistics = {
-                  min: stats.min, max: stats.max, mean: stats.average, stdDev: stats.standardDeviation
+                  min: statistics[tagName]!.min,
+                  max: statistics[tagName]!.max,
+                  mean: statistics[tagName]!.average,
+                  stdDev: statistics[tagName]!.standardDeviation
                 };
-              } catch (e) {
-                reportLogger.warn(`Stats calc failed for ${tagName}`, { error: e instanceof Error ? e.message : String(e) });
+              } else {
+                try {
+                  const stats = statisticalAnalysisService.calculateStatisticsSync(tagData);
+                  chartData.statistics = {
+                    min: stats.min, max: stats.max, mean: stats.average, stdDev: stats.standardDeviation
+                  };
+                } catch (e) {
+                  reportLogger.warn(`Stats calc failed for ${tagName}`, { error: e instanceof Error ? e.message : String(e) });
+                }
               }
+              analogDatasets.push(chartData);
             }
-            analogDatasets.push(chartData);
-          }
 
+            lineChartTasks.push({
+              key: tagName,
+              datasets: [chartData],
+              opts: {
+                timezone: options.timezone,
+                includeTrendLines: options.includeTrendLines,
+                yUnits: options.tagInfo?.[tagName]?.units,
+                tags: options.tags || Object.keys(data)
+              }
+            });
+          }
+        }
+
+        if (analogDatasets.length > 1) {
           lineChartTasks.push({
-            key: tagName,
-            datasets: [chartData],
+            key: 'Multi-Trend Chart',
+            datasets: analogDatasets,
             opts: {
+              title: 'Multi-Trend Analysis',
               timezone: options.timezone,
               includeTrendLines: options.includeTrendLines,
-              yUnits: options.tagInfo?.[tagName]?.units,
-              tags: options.tags || Object.keys(data)
+              tags: options.tags || Object.keys(data),
+              showLegend: true
             }
           });
         }
-      }
 
-      if (analogDatasets.length > 1) {
-        lineChartTasks.push({
-          key: 'Multi-Trend Chart',
-          datasets: analogDatasets,
-          opts: {
-            title: 'Multi-Trend Analysis',
-            timezone: options.timezone,
-            includeTrendLines: options.includeTrendLines,
-            tags: options.tags || Object.keys(data),
-            showLegend: true
+        // Second pass: render all line charts in parallel via worker threads
+        const lineResults = await Promise.all(
+          lineChartTasks.map(task =>
+            this.runInWorker<Buffer>('generateLineChart', task.datasets, task.opts)
+              .catch(err => {
+                reportLogger.warn(`Worker failed for "${task.key}", falling back to in-process`, { error: String(err) });
+                return this.generateLineChart(task.datasets, task.opts);
+              })
+              .then(buf => [task.key, buf] as const)
+          )
+        );
+        for (const [key, buf] of lineResults) {
+          charts[key] = buf;
+          if (key === 'Multi-Trend Chart') {
+            reportLogger.info('Generated Multi-Trend Chart for all analog tags');
           }
-        });
-      }
-
-      // Second pass: render all line charts in parallel via worker threads
-      const lineResults = await Promise.all(
-        lineChartTasks.map(task =>
-          this.runInWorker<Buffer>('generateLineChart', task.datasets, task.opts)
-            .catch(err => {
-              reportLogger.warn(`Worker failed for "${task.key}", falling back to in-process`, { error: String(err) });
-              return this.generateLineChart(task.datasets, task.opts);
-            })
-            .then(buf => [task.key, buf] as const)
-        )
-      );
-      for (const [key, buf] of lineResults) {
-        charts[key] = buf;
-        if (key === 'Multi-Trend Chart') {
-          reportLogger.info('Generated Multi-Trend Chart for all analog tags');
         }
       }
 

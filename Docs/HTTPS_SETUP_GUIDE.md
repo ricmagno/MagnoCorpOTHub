@@ -1,6 +1,6 @@
 # HTTPS Setup Guide for reports.kagome.com.au
 
-This guide will help you set up HTTPS with automatic SSL certificates for your Kubernetes-deployed Historian Reports application.
+This guide will help you set up HTTPS with automatic SSL certificates for your Kubernetes-deployed MagnoCorpOTHub application.
 
 ## Prerequisites
 
@@ -262,8 +262,8 @@ sudo nginx -t && sudo systemctl restart nginx
 ### Verify Kubernetes Service
 ```bash
 # Check if the service is running
-kubectl get pods -n historian-reports
-kubectl get svc -n historian-reports
+kubectl get pods -n magnocorp-othub
+kubectl get svc -n magnocorp-othub
 
 # Test local connection
 curl -I http://127.0.0.1:30001

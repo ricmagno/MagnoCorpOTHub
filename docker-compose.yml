@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: historian-reports:latest
-    container_name: historian-reports
+    image: magnocorp-othub:latest
+    container_name: magnocorp-othub
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -46,7 +46,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: historian-reports-cache
+    container_name: magnocorp-othub-cache
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:

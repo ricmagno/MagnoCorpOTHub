@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# KagomeReports Automatic Release & Deploy Script
+# MagnoCorpOTHub Automatic Release & Deploy Script
 # Usage: ./release.sh <version> (e.g., ./release.sh 0.79.0)
 # ==============================================================================
 
@@ -9,10 +9,10 @@
 set -e
 
 VERSION=$1
-REPO_NAME="ricmagno/kagomereports"
-NAMESPACE="historian-reports"
-DEPLOYMENT="historian-reports"
-CONTAINER="historian-reports"
+REPO_NAME="ricmagno/magnocorpothub"
+NAMESPACE="magnocorp-othub"
+DEPLOYMENT="magnocorp-othub"
+CONTAINER="magnocorp-othub"
 
 # 1. Validate version argument
 if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -32,9 +32,9 @@ sed -i '' "s/[[:space:]]*version=\".*\"/    version=\"$VERSION\"/" Dockerfile
 
 echo "📝 Updating version in Kubernetes manifest..."
 # Updated path to match current structure
-MANIFEST="Kubernetes/historian-reports-deployment.yaml"
+MANIFEST="Kubernetes/magnocorp-othub-deployment.yaml"
 if [ -f "$MANIFEST" ]; then
-    sed -i '' "s|image: ghcr.io/ricmagno/kagomereports:.*|image: ghcr.io/ricmagno/kagomereports:v$VERSION|" "$MANIFEST"
+    sed -i '' "s|image: ghcr.io/ricmagno/magnocorpothub:.*|image: ghcr.io/ricmagno/magnocorpothub:v$VERSION|" "$MANIFEST"
 else
     echo "⚠️ Warning: $MANIFEST not found, skipping manifest update."
 fi
@@ -70,12 +70,11 @@ echo "----------------------------------------------------------------------"
 echo "✅ Step 1/2 Complete: Code is pushed and Tag is created."
 echo "⌛ GitHub Actions is now building in parallel:"
 echo "   - Docker image: Building linux/amd64 and linux/arm64..."
-echo "   - Electron app: Building for Windows (.exe) and macOS (.dmg/.zip)..."
 echo "   This usually takes 3-5 minutes."
 echo "----------------------------------------------------------------------"
 
 echo "----------------------------------------------------------------------"
 echo "🎉 SUCCESS! Version $VERSION has been released."
 echo "⌛ GitHub Actions is now building AND deploying version $VERSION."
-echo "🩺 Watch build/deploy: https://github.com/ricmagno/KagomeReports/actions"
+echo "🩺 Watch build/deploy: https://github.com/ricmagno/MagnoCorpOTHub/actions"
 echo "----------------------------------------------------------------------"

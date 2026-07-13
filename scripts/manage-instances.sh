@@ -3,10 +3,10 @@
 # Comprehensive instance management script
 # Usage: ./manage-instances.sh <command> [arguments]
 
-NAMESPACE="historian-reports"
+NAMESPACE="magnocorp-othub"
 
 show_help() {
-    echo "Historian Reports Instance Manager"
+    echo "MagnoCorpOTHub Instance Manager"
     echo ""
     echo "Usage: $0 <command> [arguments]"
     echo ""
@@ -47,7 +47,7 @@ deploy_instance() {
 }
 
 list_instances() {
-    echo "Historian Reports Instances:"
+    echo "MagnoCorpOTHub Instances:"
     echo "============================"
     kubectl get deployments -n $NAMESPACE -o custom-columns="INSTANCE:.metadata.labels.instance,READY:.status.readyReplicas,AVAILABLE:.status.availableReplicas,AGE:.metadata.creationTimestamp" 2>/dev/null
     echo ""
@@ -66,7 +66,7 @@ show_status() {
     echo "========================"
     kubectl get pods -n $NAMESPACE -l instance=$name
     echo ""
-    kubectl describe deployment historian-reports-$name -n $NAMESPACE
+    kubectl describe deployment magnocorp-othub-$name -n $NAMESPACE
 }
 
 show_logs() {
@@ -89,8 +89,8 @@ delete_instance() {
     fi
     
     echo "Deleting instance: $name"
-    kubectl delete deployment historian-reports-$name -n $NAMESPACE
-    kubectl delete service historian-reports-$name -n $NAMESPACE
+    kubectl delete deployment magnocorp-othub-$name -n $NAMESPACE
+    kubectl delete service magnocorp-othub-$name -n $NAMESPACE
     
     # Clean up generated files
     rm -f k8s-manifests/deployment-$name.yaml
@@ -118,7 +118,7 @@ scale_instance() {
         return 1
     fi
     
-    kubectl scale deployment historian-reports-$name --replicas=$replicas -n $NAMESPACE
+    kubectl scale deployment magnocorp-othub-$name --replicas=$replicas -n $NAMESPACE
     echo "Scaled instance $name to $replicas replicas"
 }
 

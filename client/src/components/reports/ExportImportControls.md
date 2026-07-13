@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `ExportImportControls` component provides UI controls for exporting and importing report configurations in the Historian Reports application. It integrates with the export/import API endpoints and provides a seamless user experience with format selection, validation feedback, and loading states.
+The `ExportImportControls` component provides UI controls for exporting and importing report configurations in the MagnoCorpOTHub application. It integrates with the export/import API endpoints and provides a seamless user experience with format selection, validation feedback, and loading states.
 
 ## Features
 

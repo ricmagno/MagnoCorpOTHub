@@ -1,0 +1,11 @@
+[Unit]
+Description=MagnoCorpOTHub Autodeploy Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/autodeploy.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target

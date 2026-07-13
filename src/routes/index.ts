@@ -1,6 +1,6 @@
 /**
  * Main API Routes
- * Aggregates all route modules for the Historian Reports API
+ * Aggregates all route modules for the MagnoCorpOTHub API
  */
 
 import { Router } from 'express';
@@ -25,6 +25,11 @@ import configurationRoutes from './configuration';
 import dashboardRoutes from './dashboards';
 import alertRoutes from './alerts';
 import dataManagementRoutes from './dataManagement';
+import brandingRoutes from './branding';
+import identityProviderRoutes from './identityProviders';
+import teveConfigRoutes from './teveConfig';
+import teveTagConfigRoutes from './teveTagConfig';
+import { teveApiProxy, historianApiProxy, teveGraphqlProxy } from './teveProxy';
 
 const router = Router();
 
@@ -50,6 +55,15 @@ router.use('/updates', updatesRoutes);
 router.use('/configuration', configurationRoutes);
 router.use('/configuration/data-management', dataManagementRoutes);
 router.use('/alerts', alertRoutes);
+router.use('/branding', brandingRoutes);
+router.use('/identity-providers', identityProviderRoutes);
+router.use('/teve-config', teveConfigRoutes);
+router.use('/teve-tag-config', teveTagConfigRoutes);
+// Proxies to the separately-deployed TEVE (Tensor Embedding Vector Engine) service —
+// location is admin-configured, not hardcoded. See teveConfigService / teveProxy.ts.
+router.use('/teve', teveApiProxy);
+router.use('/historian', historianApiProxy);
+router.use('/teve-graphql', teveGraphqlProxy);
 
 // API info endpoint
 router.get('/', async (_req, res) => {
@@ -57,7 +71,7 @@ router.get('/', async (_req, res) => {
   const versionInfo = versionManager.getCurrentVersion();
 
   res.json({
-    name: 'Historian Reports API',
+    name: 'MagnoCorpOTHub API',
     version: versionInfo.version,
     description: 'Reporting application for AVEVA Historian',
     endpoints: {

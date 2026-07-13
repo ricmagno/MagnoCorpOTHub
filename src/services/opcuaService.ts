@@ -26,9 +26,14 @@ export class OpcuaService {
     private client: OPCUAClient | null = null;
     private session: ClientSession | null = null;
     private config: OpcuaConfig | null = null;
-    private subscription: ClientSubscription | null = null;
-    private connectCallback: (() => void) | null = null;
-    private reconnectCallback: (() => void) | null = null;
+    // Keyed, not a single slot: multiple independent consumers (alert evaluation,
+    // TEVE ingestion, ...) each own their own subscription. A single shared
+    // slot meant the second consumer's createSubscription() call silently terminated
+    // the first's — e.g. TEVE ingestion starting up would have killed
+    // alerting's monitored items, or an alert config change would have killed ingestion.
+    private subscriptions: Map<string, ClientSubscription> = new Map();
+    private connectCallbacks: (() => void)[] = [];
+    private reconnectCallbacks: (() => void)[] = [];
 
     constructor() { }
 
@@ -36,20 +41,25 @@ export class OpcuaService {
         return this.session !== null;
     }
 
+    // Registers an additional callback; does not replace previously registered ones.
     onConnect(cb: () => void): void {
-        this.connectCallback = cb;
+        this.connectCallbacks.push(cb);
     }
 
     onReconnect(cb: () => void): void {
-        this.reconnectCallback = cb;
+        this.reconnectCallbacks.push(cb);
     }
 
-    async createSubscription(publishingInterval = 1000): Promise<ClientSubscription> {
+    hasSubscription(key: string): boolean {
+        return this.subscriptions.has(key);
+    }
+
+    async createSubscription(key: string, publishingInterval = 1000): Promise<ClientSubscription> {
         if (!this.session) {
             throw new Error('No active OPC UA session');
         }
-        await this.terminateSubscription();
-        this.subscription = ClientSubscription.create(this.session, {
+        await this.terminateSubscription(key);
+        const subscription = ClientSubscription.create(this.session, {
             requestedPublishingInterval: publishingInterval,
             requestedLifetimeCount: 100,
             requestedMaxKeepAliveCount: 10,
@@ -57,17 +67,19 @@ export class OpcuaService {
             publishingEnabled: true,
             priority: 1,
         });
-        await new Promise<void>((resolve) => this.subscription!.on('started', () => resolve()));
-        logger.info(`OPC UA subscription started (publishingInterval=${publishingInterval}ms)`);
-        return this.subscription;
+        await new Promise<void>((resolve) => subscription.on('started', () => resolve()));
+        this.subscriptions.set(key, subscription);
+        logger.info(`OPC UA subscription '${key}' started (publishingInterval=${publishingInterval}ms)`);
+        return subscription;
     }
 
-    monitorNode(nodeId: string, samplingInterval: number, callback: (dv: DataValue) => void): ClientMonitoredItem {
-        if (!this.subscription) {
-            throw new Error('No active OPC UA subscription — call createSubscription() first');
+    monitorNode(key: string, nodeId: string, samplingInterval: number, callback: (dv: DataValue) => void): ClientMonitoredItem {
+        const subscription = this.subscriptions.get(key);
+        if (!subscription) {
+            throw new Error(`No active OPC UA subscription '${key}' — call createSubscription('${key}') first`);
         }
         const item = ClientMonitoredItem.create(
-            this.subscription,
+            subscription,
             { nodeId, attributeId: AttributeIds.Value },
             { samplingInterval, discardOldest: true, queueSize: 10 } as MonitoringParametersOptions,
             TimestampsToReturn.Both
@@ -76,14 +88,18 @@ export class OpcuaService {
         return item;
     }
 
-    async terminateSubscription(): Promise<void> {
-        if (this.subscription) {
+    /** Terminates one subscription by key, or all of them if no key is given. */
+    async terminateSubscription(key?: string): Promise<void> {
+        const keys = key ? [key] : Array.from(this.subscriptions.keys());
+        for (const k of keys) {
+            const subscription = this.subscriptions.get(k);
+            if (!subscription) continue;
             try {
-                await this.subscription.terminate();
+                await subscription.terminate();
             } catch (e) {
-                logger.warn('Error terminating OPC UA subscription:', e);
+                logger.warn(`Error terminating OPC UA subscription '${k}':`, e);
             }
-            this.subscription = null;
+            this.subscriptions.delete(k);
         }
     }
 
@@ -111,9 +127,9 @@ export class OpcuaService {
                 } as any),
             });
 
-            if (this.reconnectCallback) {
-                this.client.on('connection_reestablished', () => this.reconnectCallback?.());
-            }
+            this.client.on('connection_reestablished', () => {
+                for (const cb of this.reconnectCallbacks) cb();
+            });
 
             logger.info(`Attempting to connect to OPC UA server: ${config.endpointUrl}`, {
                 securityMode: config.securityMode,
@@ -190,7 +206,7 @@ export class OpcuaService {
 
                     this.session = await this.client.createSession(userIdentity);
                     logger.info('OPC UA session created');
-                    this.connectCallback?.();
+                    for (const cb of this.connectCallbacks) cb();
                 },
                 {
                     maxAttempts: 3,

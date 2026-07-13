@@ -11,7 +11,7 @@ export interface TimeSeriesData {
   qualityMeaning?: string;
   tagName: string;
   description?: string | undefined;
-  dataSource?: 'historian' | 'opcua';
+  dataSource?: 'historian' | 'opcua' | 'tensor';
 }
 
 /**
@@ -41,7 +41,7 @@ export interface TagInfo {
   minValue?: number;
   maxValue?: number;
   engineeringUnits?: string;
-  dataSource?: 'historian' | 'opcua';
+  dataSource?: 'historian' | 'opcua' | 'tensor';
   opcuaNodeId?: string; // Specific to OPC UA tags
 }
 

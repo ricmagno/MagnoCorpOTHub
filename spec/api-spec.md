@@ -1,6 +1,6 @@
 # API Specification
 
-This document defines the core API endpoints for the Historian Reports backend.
+This document defines the core API endpoints for the MagnoCorpOTHub backend.
 
 ## 🔐 Authentication
 - `POST /api/auth/login`: Authenticate user and return JWT.

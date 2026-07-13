@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  BarChart3,
   FileText,
   Calendar,
   Download,
@@ -18,7 +17,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  Bell
+  Bell,
+  Search
 } from 'lucide-react';
 import { ReportConfig, TagInfo, ReportVersion } from '../../types/api';
 import { Button } from '../ui/Button';
@@ -37,6 +37,8 @@ import { SchedulesList, SchedulesErrorBoundary } from '../schedules';
 import { UserManagement } from '../users';
 import { ConfigurationManagement } from '../configuration/ConfigurationManagement';
 import { AboutSection } from '../about/AboutSection';
+import { InsightsPanel } from '../insights/InsightsPanel';
+import { useTeveEnabled } from '../../hooks/useTeveConfig';
 import { DashboardList } from '../dashboards/DashboardList';
 import { DashboardView } from '../dashboards/DashboardView';
 import { DashboardEditor } from '../dashboards/DashboardEditor';
@@ -45,6 +47,8 @@ import { DataFilterConfig } from '../forms/DataFilterConfig';
 import { QualityFilter } from '../forms/QualityFilter';
 import { AlertsManagement } from '../alerts/AlertsManagement';
 import { apiService } from '../../services/api';
+import { BackendStatusIndicator } from './BackendStatusIndicator';
+import { BrandingContext, useBrandingProvider, isCustomBranded } from '../../hooks/useBranding';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { cn } from '../../utils/cn';
@@ -54,13 +58,14 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
+  const brandingProviderValue = useBrandingProvider();
+  const { branding, logoVersion } = brandingProviderValue;
   const { user, isAuthenticated, login: authLogin, logout: authLogout, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'create' | 'reports' | 'dashboards' | 'schedules' | 'alerts' | 'users' | 'configuration' | 'about'>('create');
+  const teveEnabled = useTeveEnabled(isAuthenticated);
+  const [activeTab, setActiveTab] = useState<'create' | 'reports' | 'dashboards' | 'schedules' | 'alerts' | 'insights' | 'users' | 'configuration' | 'about'>('create');
   const [dashboardViewMode, setDashboardViewMode] = useState<'list' | 'view' | 'edit'>('list');
   const [selectedDashboardId, setSelectedDashboardId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [healthStatus, setHealthStatus] = useState<string>('checking...');
-  const [serverTime, setServerTime] = useState<{ local: string, timezone: string } | null>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '', rememberMe: true });
   const [loginLoading, setLoginLoading] = useState(false);
   const { success, error: toastError, warning, info } = useToast();
@@ -122,85 +127,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
 
     return false;
   }, [reportConfig, savedConfig]);
-
-  // Health check with polling for reconnection countdown
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    const checkHealth = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
-
-        const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/health/historian`, {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        // Try to parse JSON regardless of status code, as 503 might contain health info
-        let data: any = {};
-        try {
-          data = await response.json();
-        } catch (e) {
-          // If JSON parsing fails, we'll rely on status code
-        }
-
-        if (response.ok || response.status === 503) {
-          if (data.serverTime) {
-            setServerTime({
-              local: data.serverTime.local,
-              timezone: data.serverTime.timezone
-            });
-          }
-          if (data.status === 'healthy') {
-            setHealthStatus('✅ Backend');
-          } else if (data.connection && data.connection.state === 'retrying' && data.connection.nextRetry) {
-            const nextRetry = new Date(data.connection.nextRetry);
-            const now = new Date();
-            const diff = Math.ceil((nextRetry.getTime() - now.getTime()) / 1000);
-            const seconds = diff > 0 ? diff : 0;
-            setHealthStatus(`⚠️ Retry ${seconds}s`);
-          } else if (data.connection && data.connection.state === 'connecting') {
-            setHealthStatus('⚠️ Connecting...');
-          } else if (data.status) {
-            setHealthStatus('❌ Backend - DB Offline');
-          } else {
-            setHealthStatus(`❌ Backend Error`);
-          }
-        } else {
-          // If detailed check fails hard (not 503), try basic check
-          const controllerBasic = new AbortController();
-          const timeoutBasic = setTimeout(() => controllerBasic.abort(), 1000);
-
-          try {
-            const basicResponse = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/health`, {
-              signal: controllerBasic.signal
-            });
-            clearTimeout(timeoutBasic);
-
-            if (basicResponse.ok) {
-              setHealthStatus('⚠️ Connecting');
-            } else {
-              setHealthStatus('❌ Offline');
-            }
-          } catch (e) {
-            setHealthStatus('❌ Offline');
-          }
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          setHealthStatus('❌ Timeout');
-        } else {
-          setHealthStatus('❌ Offline');
-        }
-      }
-    };
-
-    checkHealth();
-    intervalId = setInterval(checkHealth, 1000); // Poll every second to update countdown
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   // Use current user from auth hook
   const currentUser = user;
@@ -669,14 +595,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
     }
   };
 
+  const navDisplayName = [branding.companyName, branding.appName].filter(Boolean).join(' ') || 'MagnoCorpOTHub';
+
   return (
+    <BrandingContext.Provider value={brandingProviderValue}>
     <div className={cn("min-h-screen bg-gray-50", className)}>
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <BarChart3 className="h-6 w-6 text-primary-600" />
-              <span className="text-xl font-bold text-gray-900 truncate">Historian Reports</span>
+              {branding.hasLogo
+                ? <img src={`/api/branding/logo?v=${logoVersion}`} alt="" className="h-7 w-auto object-contain" />
+                : <img src="/logo192.png" alt="" className="h-7 w-auto object-contain" />
+              }
+              <div className="flex flex-col leading-tight">
+                <span className="text-xl font-bold text-gray-900 truncate">{navDisplayName}</span>
+                {isCustomBranded(branding) && (
+                  <span className="text-[10px] text-gray-400 truncate">Powered by MagnoCorpOTHub</span>
+                )}
+              </div>
             </div>
             {isAuthenticated && (
               <button
@@ -695,18 +632,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            <div className={`text-sm px-3 py-1 rounded-full ${healthStatus.includes('✅') ? 'bg-green-100 text-green-800' :
-              healthStatus.includes('⚠️') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-              }`}>
-              {healthStatus}
-            </div>
-            {serverTime && (
-              <div className="hidden lg:flex flex-col text-[10px] text-gray-500 leading-tight border-l border-gray-200 pl-4 py-1">
-                <span className="font-semibold text-gray-700">Server Time:</span>
-                <span className="truncate max-w-[150px]">{serverTime.local}</span>
-                <span className="text-[9px] opacity-75">{serverTime.timezone}</span>
-              </div>
-            )}
+            <BackendStatusIndicator />
             {isAuthenticated && (
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -716,11 +642,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
           </div>
 
           <div className="md:hidden flex items-center space-x-2">
-            <div className={`text-[10px] px-2 py-0.5 rounded-full ${healthStatus.includes('✅') ? 'bg-green-100 text-green-800' :
-              healthStatus.includes('⚠️') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-              }`}>
-              {healthStatus.split(' ')[0]}
-            </div>
+            <BackendStatusIndicator />
             {isAuthenticated && (
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -741,6 +663,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
               { id: 'dashboards', label: 'Dashboards', icon: Activity },
               { id: 'schedules', label: 'Schedules', icon: Calendar },
               { id: 'alerts', label: 'Alerts', icon: Bell },
+              ...(teveEnabled ? [{ id: 'insights', label: 'Insights', icon: Search }] : []),
               { id: 'categories', label: 'Categories', icon: Tag },
               { id: 'status', label: 'Status', icon: Activity },
               ...(currentUser?.role === 'admin' ? [{ id: 'configuration', label: 'Configuration', icon: Settings }] : []),
@@ -836,6 +759,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
                 { id: 'dashboards', label: 'Dashboards', icon: Activity },
                 { id: 'schedules', label: 'Schedules', icon: Calendar },
                 { id: 'alerts', label: 'Alerts', icon: Bell },
+                ...(teveEnabled ? [{ id: 'insights', label: 'Insights', icon: Search }] : []),
                 ...(currentUser?.role === 'admin' ? [{ id: 'configuration', label: 'Configuration', icon: Settings }] : []),
                 ...(currentUser?.role === 'admin' ? [{ id: 'users', label: 'Users', icon: Users }] : []),
               ].map(tab => (
@@ -1296,6 +1220,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
               )
             }
 
+            {
+              activeTab === 'insights' && teveEnabled && (
+                <InsightsPanel />
+              )
+            }
+
 
             {
               activeTab === 'users' && currentUser?.role === 'admin' && (
@@ -1328,5 +1258,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
         onSelectFormat={handleConfirmExport}
       />
     </div>
+    </BrandingContext.Provider>
   );
 };

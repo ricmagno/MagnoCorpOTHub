@@ -1,0 +1,43 @@
+# Separate Ingress resource (not merged into magnocorp-othub-ingress.yaml, which is
+# mid-edit for the app rename) routing historian REST/GraphQL paths to historian-api.
+# Traefik resolves the more specific paths below over magnocorp-othub-ingress.yaml's "/"
+# catch-all on the same host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: historian-ingress
+  namespace: magnocorp-othub
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+    - hosts:
+        - reports.kagome.com.au
+      secretName: kagome-reports-tls
+  rules:
+    - host: reports.kagome.com.au
+      http:
+        paths:
+          - path: /api/historian
+            pathType: Prefix
+            backend:
+              service:
+                name: historian-api
+                port:
+                  number: 3100
+          - path: /api/teve
+            pathType: Prefix
+            backend:
+              service:
+                name: historian-api
+                port:
+                  number: 3100
+          - path: /graphql
+            pathType: Prefix
+            backend:
+              service:
+                name: historian-api
+                port:
+                  number: 3100

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run MagnoCorpOTHub Autodeploy every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=magnocorp-othub-autodeploy.service
+
+[Install]
+WantedBy=timers.target

@@ -1,8 +1,8 @@
-# Historian Reports Application - Context Guide
+# MagnoCorpOTHub Application - Context Guide
 
 ## Project Overview
 
-**Historian Reports** (also known as **KagomeReports**) is a professional reporting application designed to generate printable reports and trends from the AVEVA Historian database. The system connects directly to the AVEVA Historian database via SQL to extract historical data, process it into meaningful trends, and generate professional printable reports.
+**MagnoCorpOTHub** is a professional reporting application designed to generate printable reports and trends from the AVEVA Historian database. The system connects directly to the AVEVA Historian database via SQL to extract historical data, process it into meaningful trends, and generate professional printable reports.
 
 ### 🤖 AI-First Development
 This repository is optimized for AI coding agents. Key documentation:
@@ -27,7 +27,6 @@ This repository is optimized for AI coding agents. Key documentation:
 ### Architecture
 - **Backend**: Node.js/TypeScript with Express.js
 - **Frontend**: React.js with Tailwind CSS
-- **Desktop**: Electron (cross-platform: Windows, macOS)
 - **Database**: AVEVA Historian (Microsoft SQL Server) + SQLite (config)
 - **Caching**: Redis (optional)
 - **Reporting**: PDFKit for PDF generation
@@ -66,7 +65,6 @@ This repository is optimized for AI coding agents. Key documentation:
 | `tsx` | TypeScript execution |
 | `jest`, `ts-jest` | Testing framework |
 | `fast-check` | Property-based testing |
-| `electron`, `electron-builder` | Desktop app packaging |
 | `concurrently` | Run multiple commands |
 | `eslint` | Code linting |
 
@@ -75,7 +73,7 @@ This repository is optimized for AI coding agents. Key documentation:
 ## Project Structure
 
 ```
-KagomeReports/
+MagnoCorpOTHub/
 ├── spec/                       # Authoritative specifications
 │   ├── deployment.md           # Docker & K8s architecture
 │   ├── api-spec.md             # API endpoint definitions
@@ -120,7 +118,6 @@ KagomeReports/
 │   ├── utils/
 │   │   ├── logger.ts           # Winston logging utilities
 │   │   └── retryHandler.ts     # Retry logic with exponential backoff
-│   └── electron/               # Electron-specific code
 ├── client/                     # React frontend
 │   ├── src/
 │   │   ├── components/         # UI components
@@ -132,7 +129,7 @@ KagomeReports/
 │   └── package.json
 ├── Kubernetes/                 # Kubernetes deployment manifests
 │   ├── autodeploy/             # Auto-deploy watchdog scripts
-│   ├── historian-reports-*.yaml # K8s manifests
+│   ├── magnocorp-othub-*.yaml # K8s manifests
 │   └── README.md
 ├── Docs/                       # Additional documentation
 │   ├── KUBERNETES_SETUP_INSTRUCTIONS.md
@@ -155,9 +152,6 @@ KagomeReports/
 - **Node.js**: >= 18.0.0
 - **Database**: Microsoft SQL Server (AVEVA Historian)
 - **Optional**: Redis for caching
-- **For Electron builds**:
-  - Windows: Wine + Mono (for cross-compilation from macOS)
-  - macOS: Xcode command line tools
 
 ### Setup Instructions
 
@@ -177,7 +171,7 @@ cp .env.example .env
 ```bash
 npm run build          # Backend
 npm run build:client   # Frontend
-npm run build:all      # Both + Electron
+npm run build:all      # Both
 ```
 
 ### Available Scripts
@@ -190,14 +184,11 @@ npm run build:all      # Both + Electron
 | `npm run start` | Start production server |
 | `npm run build` | Compile TypeScript to JavaScript |
 | `npm run build:client` | Build React frontend |
-| `npm run build:all` | Build backend + client + Electron |
+| `npm run build:all` | Build backend + client |
 | `npm run test` | Run Jest unit tests |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:property` | Run property-based tests |
 | `npm run lint` | Run ESLint |
-| `npm run electron:dev` | Run Electron app in development |
-| `npm run electron:build:win` | Build Windows installer |
-| `npm run electron:build:mac` | Build macOS installer |
 | `npm run docker:build` | Build Docker image (multi-arch: AMD64 & ARM64) |
 | `npm run docker:dev` | Start with Docker Compose |
 | `./release.sh <version>` | Create release and trigger auto-deployment |
@@ -271,18 +262,18 @@ The multi-stage Dockerfile (`/Dockerfile`) is optimized for security and multi-a
 
 | Component | File | Description |
 |-----------|------|-------------|
-| Namespace | `historian-reports-namespace.yaml` | Isolates all resources |
-| Deployment | `historian-reports-deployment.yaml` | Application pods (1+ replicas) |
-| HPA | `historian-reports-hpa.yaml` | Auto-scaling (2-10 replicas based on CPU/memory) |
-| Service | `historian-reports-service.yaml` | ClusterIP service on port 3000 |
-| Ingress | `historian-reports-ingress.yaml` | Traefik ingress with TLS |
-| Secrets | `historian-reports-secret.yaml` | Database credentials and sensitive config |
+| Namespace | `magnocorp-othub-namespace.yaml` | Isolates all resources |
+| Deployment | `magnocorp-othub-deployment.yaml` | Application pods (1+ replicas) |
+| HPA | `magnocorp-othub-hpa.yaml` | Auto-scaling (2-10 replicas based on CPU/memory) |
+| Service | `magnocorp-othub-service.yaml` | ClusterIP service on port 3000 |
+| Ingress | `magnocorp-othub-ingress.yaml` | Traefik ingress with TLS |
+| Secrets | `magnocorp-othub-secret.yaml` | Database credentials and sensitive config |
 
 #### Deployment Steps
 
 1. **Create Namespace**:
 ```bash
-kubectl apply -f Kubernetes/historian-reports-namespace.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-namespace.yaml
 ```
 
 2. **Configure GHCR Access** (imagePullSecret):
@@ -292,20 +283,20 @@ kubectl create secret docker-registry ghcr-regcred \
   --docker-username=ricmagno \
   --docker-password=<YOUR_GITHUB_PAT> \
   --docker-email=ricmagno@gmail.com \
-  -n historian-reports
+  -n magnocorp-othub
 ```
 
 3. **Apply Secrets** (update values first):
 ```bash
-kubectl apply -f Kubernetes/historian-reports-secret.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-secret.yaml
 ```
 
 4. **Deploy Application**:
 ```bash
-kubectl apply -f Kubernetes/historian-reports-deployment.yaml
-kubectl apply -f Kubernetes/historian-reports-service.yaml
-kubectl apply -f Kubernetes/historian-reports-hpa.yaml
-kubectl apply -f Kubernetes/historian-reports-ingress.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-deployment.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-service.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-hpa.yaml
+kubectl apply -f Kubernetes/magnocorp-othub-ingress.yaml
 ```
 
 #### Autodeploy Watchdog (Pull-Based CD)
@@ -330,20 +321,20 @@ sudo cp ~/autodeploy/autodeploy.sh /usr/local/bin/autodeploy.sh
 sudo chmod +x /usr/local/bin/autodeploy.sh
 
 # 3. Install systemd service and timer
-sudo cp ~/autodeploy/historian-autodeploy.* /etc/systemd/system/
+sudo cp ~/autodeploy/magnocorp-othub-autodeploy.* /etc/systemd/system/
 
 # 4. Enable and start
 sudo systemctl daemon-reload
-sudo systemctl enable --now historian-autodeploy.timer
+sudo systemctl enable --now magnocorp-othub-autodeploy.timer
 ```
 
 **Monitoring**:
 ```bash
 # Check timer status
-systemctl status historian-autodeploy.timer
+systemctl status magnocorp-othub-autodeploy.timer
 
 # View logs
-journalctl -u historian-autodeploy.service
+journalctl -u magnocorp-othub-autodeploy.service
 ```
 
 #### Release Workflow
@@ -652,13 +643,13 @@ docker-compose down
 docker-compose logs -f
 
 # Kubernetes operations
-kubectl get pods -n historian-reports
-kubectl logs -n historian-reports -l app=historian-reports
-kubectl describe deployment historian-reports -n historian-reports
+kubectl get pods -n magnocorp-othub
+kubectl logs -n magnocorp-othub -l app=magnocorp-othub
+kubectl describe deployment magnocorp-othub -n magnocorp-othub
 
 # Autodeploy monitoring
-systemctl status historian-autodeploy.timer
-journalctl -u historian-autodeploy.service
+systemctl status magnocorp-othub-autodeploy.timer
+journalctl -u magnocorp-othub-autodeploy.service
 ```
 
 ---
@@ -672,9 +663,8 @@ journalctl -u historian-autodeploy.service
 | **OPC UA Connection Failures** | Check endpoint security mode; try `SignAndEncrypt` |
 | **Database Connection Timeout** | Increase `DB_TIMEOUT_MS` in environment |
 | **PDF Generation Errors** | Verify canvas native module installation |
-| **Electron Build Issues** | Check code signing certificates in `build-secrets/` |
 | **Kubernetes Pod Not Starting** | Check `ghcr-regcred` secret; verify GitHub PAT has `read:packages` scope |
-| **Autodeploy Not Triggering** | Check `systemctl status historian-autodeploy.timer`; verify network access to GitHub API |
+| **Autodeploy Not Triggering** | Check `systemctl status magnocorp-othub-autodeploy.timer`; verify network access to GitHub API |
 | **Image Pull Errors** | Ensure image tag exists on GHCR; check `kubectl describe pod` for details |
 
 ### Logs Location
@@ -683,8 +673,8 @@ journalctl -u historian-autodeploy.service
 |-------------|----------|
 | Development | `logs/app.log` |
 | Docker | Container stdout or mounted `./logs` volume |
-| Kubernetes | `kubectl logs -n historian-reports -l app=historian-reports` |
-| Autodeploy | `journalctl -u historian-autodeploy.service` |
+| Kubernetes | `kubectl logs -n magnocorp-othub -l app=magnocorp-othub` |
+| Autodeploy | `journalctl -u magnocorp-othub-autodeploy.service` |
 
 ### Deployment Documentation References
 

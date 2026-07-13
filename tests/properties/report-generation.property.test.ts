@@ -22,14 +22,25 @@ jest.mock('@/config/environment', () => ({
   }
 }));
 
-jest.mock('@/utils/logger', () => ({
-  reportLogger: {
+jest.mock('@/utils/logger', () => {
+  const mockLogger = {
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
     debug: jest.fn()
-  }
-}));
+  };
+  // chartGeneration.ts dynamically imports tagClassificationService.ts and
+  // statisticalAnalysis.ts, which pull in `logger` and `dbLogger` respectively —
+  // an incomplete mock here left those undefined and crashed the worker process.
+  return {
+    logger: mockLogger,
+    reportLogger: mockLogger,
+    dbLogger: mockLogger,
+    apiLogger: mockLogger,
+    emailLogger: mockLogger,
+    schedulerLogger: mockLogger
+  };
+});
 
 describe('Property-Based Tests: Report Generation', () => {
   let chartService: ChartGenerationService;
@@ -71,8 +82,8 @@ describe('Property-Based Tests: Report Generation', () => {
       intercept: fc.float({ min: -1000, max: 1000 })
     });
 
-    it('should generate valid chart buffers for any valid time-series data', () => {
-      fc.assert(
+    it('should generate valid chart buffers for any valid time-series data', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.array(timeSeriesDataArb, { minLength: 2, maxLength: 10 }),
           async (data) => {
@@ -101,8 +112,8 @@ describe('Property-Based Tests: Report Generation', () => {
       );
     });
 
-    it('should generate valid bar charts for any valid statistics data', () => {
-      fc.assert(
+    it('should generate valid bar charts for any valid statistics data', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.dictionary(
             fc.string({ minLength: 1, maxLength: 10 }),
@@ -122,8 +133,8 @@ describe('Property-Based Tests: Report Generation', () => {
       );
     });
 
-    it('should generate valid trend charts for any valid data and trend', () => {
-      fc.assert(
+    it('should generate valid trend charts for any valid data and trend', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.array(timeSeriesDataArb, { minLength: 3, maxLength: 10 }),
           trendResultArb,
@@ -154,8 +165,10 @@ describe('Property-Based Tests: Report Generation', () => {
       );
     });
 
-    it('should generate multiple charts consistently', () => {
-      fc.assert(
+    // Runs real chart-generation worker threads (process spawn overhead) across up to
+    // 10 property-test iterations — needs more headroom than Jest's global 10s default.
+    it('should generate multiple charts consistently', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.dictionary(
             fc.string({ minLength: 1, maxLength: 10 }),
@@ -226,16 +239,24 @@ describe('Property-Based Tests: Report Generation', () => {
                 }).length 
               : 0;
 
-            const expectedTotal = expectedLineCharts + expectedBarCharts + expectedTrendCharts;
+            // generateReportCharts also emits one bonus "Multi-Trend Chart" combining all
+            // analog-classified tags when there's more than one of them — an intentional
+            // overview chart (see the reportLogger.info call in chartGeneration.ts), not
+            // per-requested-type output. `expectedLineCharts > 1` over-approximates "more
+            // than one analog tag" (every analog tag is counted in expectedLineCharts, but
+            // not every counted tag is analog) — safe as an upper-bound allowance without
+            // duplicating the classification heuristic here.
+            const allowsMultiTrendChart = chartTypes.includes('line') && expectedLineCharts > 1 ? 1 : 0;
+            const expectedTotal = expectedLineCharts + expectedBarCharts + expectedTrendCharts + allowsMultiTrendChart;
             expect(Object.keys(charts).length).toBeLessThanOrEqual(expectedTotal);
           }
         ),
         { numRuns: 10, timeout: 15000 }
       );
-    });
+    }, 60000);
 
-    it('should handle edge cases gracefully', () => {
-      fc.assert(
+    it('should handle edge cases gracefully', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.oneof(
             // Empty data
@@ -289,8 +310,8 @@ describe('Property-Based Tests: Report Generation', () => {
       );
     });
 
-    it('should maintain color consistency across chart types', () => {
-      fc.assert(
+    it('should maintain color consistency across chart types', async () => {
+      await fc.assert(
         fc.asyncProperty(
           fc.array(timeSeriesDataArb, { minLength: 3, maxLength: 6 }),
           fc.hexaString({ minLength: 6, maxLength: 6 }),

@@ -5,10 +5,13 @@ import { OpcuaConfiguration } from './OpcuaConfiguration';
 import { HistorianConfiguration } from './HistorianConfiguration';
 import { DataManagement } from './DataManagement';
 import { AlertDeliveryConfiguration } from './AlertDeliveryConfiguration';
+import { BrandingConfiguration } from './BrandingConfiguration';
+import { IdentityProviderConfiguration } from './IdentityProviderConfiguration';
+import { TeveConfiguration } from './TeveConfiguration';
 import { cn } from '../../utils/cn';
 import './ConfigurationManagement.css';
 
-type ConfigTab = 'historian' | 'opcua' | 'alerts' | 'data-management';
+type ConfigTab = 'historian' | 'opcua' | 'alerts' | 'data-management' | 'branding' | 'identity-provider' | 'teve';
 
 export const ConfigurationManagement: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -85,6 +88,30 @@ export const ConfigurationManagement: React.FC = () => {
                 Data Management
               </button>
             )}
+            {isAdmin && (
+              <button
+                className={cn("tab-button", configTab === 'branding' && "active")}
+                onClick={() => setConfigTab('branding')}
+              >
+                Branding
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                className={cn("tab-button", configTab === 'identity-provider' && "active")}
+                onClick={() => setConfigTab('identity-provider')}
+              >
+                Identity Provider
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                className={cn("tab-button", configTab === 'teve' && "active")}
+                onClick={() => setConfigTab('teve')}
+              >
+                TEVE
+              </button>
+            )}
           </div>
           {configTab === 'historian' && (
             <button
@@ -118,17 +145,51 @@ export const ConfigurationManagement: React.FC = () => {
             <p className="mt-1">Only administrators can configure alert delivery settings.</p>
           </div>
         )
-      ) : isAdmin ? (
-        <div className="mt-6">
-          <DataManagement />
-        </div>
-      ) : (
-        <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
-          <Lock className="mx-auto mb-3 text-gray-400" size={32} />
-          <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
-          <p className="mt-1">Only users with the Administrator role can access Data Management.</p>
-        </div>
-      )}
+      ) : configTab === 'data-management' ? (
+        isAdmin ? (
+          <div className="mt-6">
+            <DataManagement />
+          </div>
+        ) : (
+          <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
+            <Lock className="mx-auto mb-3 text-gray-400" size={32} />
+            <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
+            <p className="mt-1">Only users with the Administrator role can access Data Management.</p>
+          </div>
+        )
+      ) : configTab === 'branding' ? (
+        isAdmin ? (
+          <BrandingConfiguration />
+        ) : (
+          <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
+            <Lock className="mx-auto mb-3 text-gray-400" size={32} />
+            <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
+            <p className="mt-1">Only administrators can configure branding settings.</p>
+          </div>
+        )
+      ) : configTab === 'identity-provider' ? (
+        isAdmin ? (
+          <IdentityProviderConfiguration />
+        ) : (
+          <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
+            <Lock className="mx-auto mb-3 text-gray-400" size={32} />
+            <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
+            <p className="mt-1">Only administrators can configure identity provider settings.</p>
+          </div>
+        )
+      ) : configTab === 'teve' ? (
+        isAdmin ? (
+          <div className="mt-6">
+            <TeveConfiguration />
+          </div>
+        ) : (
+          <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
+            <Lock className="mx-auto mb-3 text-gray-400" size={32} />
+            <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
+            <p className="mt-1">Only administrators can configure the TEVE integration.</p>
+          </div>
+        )
+      ) : null}
     </div>
   );
 };

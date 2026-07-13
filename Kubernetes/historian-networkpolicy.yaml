@@ -1,0 +1,35 @@
+# Restricts historian-postgres/redis/minio to accept traffic only from historian-api
+# and historian-worker pods, not from every pod in the shared magnocorp-othub namespace.
+# Requires a CNI that enforces NetworkPolicy (Calico, Cilium; not the plain flannel default
+# on some single-node k3s installs — verify before relying on this in production).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: historian-data-tier-policy
+  namespace: magnocorp-othub
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["historian-postgres", "historian-redis", "historian-minio"]
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["historian-api", "historian-worker"]
+        - podSelector:
+            matchLabels:
+              app: historian-minio-init # one-shot bucket-creation job needs to reach MinIO once
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 9000
+        - protocol: TCP
+          port: 9001

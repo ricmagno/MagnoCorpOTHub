@@ -70,8 +70,8 @@ async function testHeaderRedesign() {
       console.log(`  Generation time: ${result.metadata.generationTime}ms`);
       console.log('\nPlease open the PDF to verify:');
       console.log('  1. Header has no colored background');
-      console.log('  2. "Kagome" appears as company name in dark gray');
-      console.log('  3. "Historian Reports" appears as subtitle in medium gray');
+      console.log('  2. "OT Hub" appears as company name in dark gray');
+      console.log('  3. "OT Hub" appears as subtitle in medium gray');
       console.log('  4. Horizontal line separates header from content');
       console.log('  5. All text is grayscale (no blue background)');
     } else {

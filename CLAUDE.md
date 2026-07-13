@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Historian Reports** is a full-stack reporting platform for **AVEVA (Wonderware) Historian** — an industrial time-series database. It extracts historical tag data via SQL, renders PDF reports and live dashboards, and can be deployed as a web app, Docker container, or Electron desktop app.
+**MagnoCorpOTHub** is a full-stack reporting platform for **AVEVA (Wonderware) Historian** — an industrial time-series database. It extracts historical tag data via SQL, renders PDF reports and live dashboards, and can be deployed as a web app, Docker container, or Kubernetes deployment.
 
 ## Commands
 
@@ -12,16 +12,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run start:dev          # Backend (tsx watch) + React frontend concurrently
 npm run dev:mock           # Backend using mock data (no real DB required)
-npm run electron:dev       # Electron desktop app in dev mode
 ```
 
 ### Build
 ```bash
 npm run build              # Compile backend TypeScript → dist/
 npm run build:client       # Build React frontend → client/build/
-npm run build:all          # Build backend + electron + frontend
-npm run electron:build:win # Full Windows installer (.exe)
-npm run electron:build:mac # Full macOS DMG
+npm run build:all          # Build backend + frontend
 ```
 
 ### Test & Lint
@@ -84,11 +81,10 @@ React SPA with Tailwind CSS. Feature-based component structure under `client/src
 - `dashboards/` — live dashboard editor, widget/gauge/chart components.
 - `alerts/`, `schedules/`, `users/`, `configuration/` — management UIs.
 - `client/src/services/api.ts` — all fetch calls to the backend; custom hooks in `client/src/hooks/`.
+- `client/src/DESIGN_SYSTEM.md` — canonical button/toggle/form/card patterns. Read this before adding any new settings or configuration panel; it exists because past panels shipped with ad-hoc colors and hand-rolled buttons instead of the shared `Button` component and `primary` theme color.
 
 In production, the backend serves the built React app as static files from `client/build/`.
 
-### Electron (`src/electron/`)
-Electron main and preload scripts compiled separately with `tsconfig.electron.json`. The `electron.js` root file is the app entry point for the desktop build.
 
 ## Key Conventions
 

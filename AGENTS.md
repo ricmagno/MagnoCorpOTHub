@@ -3,8 +3,8 @@
 This document provides coding conventions, architectural intent, and technical constraints to guide AI coding agents. Follow these rules strictly when modifying the codebase.
 
 ## 🎯 Project Overview
-**Historian Reports** is a specialized reporting platform for AVEVA (Wonderware) Historian.
-- **Tech Stack**: Node.js, TypeScript, Express, Electron, SQL Server (AVEVA), SQLite (Config), Prisma (Postgres).
+**MagnoCorpOTHub** is a specialized reporting platform for AVEVA (Wonderware) Historian.
+- **Tech Stack**: Node.js, TypeScript, Express, SQL Server (AVEVA), SQLite (Config), Prisma (Postgres).
 - **Core Domain**: Industrial time-series data retrieval, processing, and PDF/Dashboard visualization.
 
 ## 🏗️ Architectural Constraints

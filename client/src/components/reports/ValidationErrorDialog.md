@@ -235,7 +235,7 @@ Potential improvements for future versions:
 
 ## Design System Compliance
 
-This component follows the Historian Reports design system:
+This component follows the MagnoCorpOTHub design system:
 
 - Uses Tailwind CSS utility classes
 - Follows color palette (primary, gray, red, yellow, blue)

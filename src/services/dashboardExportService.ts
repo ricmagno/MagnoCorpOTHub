@@ -45,7 +45,7 @@ export class DashboardExportService {
     private buildMetadata() {
         return {
             exportDate: new Date().toISOString(),
-            exporter: 'KagomeReports Dashboard Service',
+            exporter: 'MagnoCorpOTHub Dashboard Service',
             schemaCompatibility: ['1.0.0']
         };
     }

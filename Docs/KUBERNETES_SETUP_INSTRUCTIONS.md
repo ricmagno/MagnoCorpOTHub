@@ -1,6 +1,6 @@
 # Kubernetes & Autodeploy Setup Instructions
 
-This document provides the authoritative instructions for deploying Historian Reports to a production Kubernetes cluster and setting up the automated deployment "Watchdog".
+This document provides the authoritative instructions for deploying MagnoCorpOTHub to a production Kubernetes cluster and setting up the automated deployment "Watchdog".
 
 > [!NOTE]
 > This guide focuses on **how** to deploy. For the **authoritative specification** of the deployment architecture, see [spec/deployment.md](../spec/deployment.md).
@@ -14,7 +14,7 @@ Ensure `kubectl` is installed and configured to point to your production cluster
 
 ### 2. Manual Deployment
 Follow the steps in [Kubernetes/README.md](../Kubernetes/README.md) to:
-- Create the `historian-reports` namespace.
+- Create the `magnocorp-othub` namespace.
 - Configure `ghcr-regcred` secret for GitHub Container Registry access.
 - Apply environment secrets and manifests.
 
@@ -42,24 +42,24 @@ sudo cp ~/autodeploy/autodeploy.sh /usr/local/bin/autodeploy.sh
 sudo chmod +x /usr/local/bin/autodeploy.sh
 
 # 3. Install systemd service and timer
-sudo cp ~/autodeploy/historian-autodeploy.* /etc/systemd/system/
+sudo cp ~/autodeploy/magnocorp-othub-autodeploy.* /etc/systemd/system/
 
 # 4. Enable the timer
 sudo systemctl daemon-reload
-sudo systemctl enable --now historian-autodeploy.timer
+sudo systemctl enable --now magnocorp-othub-autodeploy.timer
 ```
 
 ### 3. Monitoring
 Check the status of the automated checks:
 ```bash
 # View timer status
-systemctl status historian-autodeploy.timer
+systemctl status magnocorp-othub-autodeploy.timer
 
 # View logs of the last check
-journalctl -u historian-autodeploy.service
+journalctl -u magnocorp-othub-autodeploy.service
 ```
 
 ## 🔄 Release Workflow
 1.  **Tag & Push**: Create a new version tag (e.g., `v1.2.21`) and push to GitHub.
-2.  **GitHub Action**: GitHub builds and pushes the image to `ghcr.io/ricmagno/kagomereports`.
+2.  **GitHub Action**: GitHub builds and pushes the image to `ghcr.io/ricmagno/magnocorpothub`.
 3.  **Watchdog**: Within 5 minutes, the server identifies the new version and updates the cluster.
