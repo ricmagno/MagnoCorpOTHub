@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This application is designed to generate printable reports and trends from the AVEVA Historian database. The system will provide a solution for extracting historical data, processing it into meaningful trends, and generating professional printable reports.
+MagnoCorpOTHub: the unified OT reporting and analytics platform for industrial automation. It connects to AVEVA Historian and OPC UA sources to turn historical and live tag data into scheduled PDF reports, real-time dashboards, and threshold-based alerts.
 
 ### 🤖 AI-First Development
 This repository is optimized for AI coding agents. If you are using an AI assistant, please refer to:
