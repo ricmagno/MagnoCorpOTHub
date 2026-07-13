@@ -59,8 +59,8 @@ router.use('/branding', brandingRoutes);
 router.use('/identity-providers', identityProviderRoutes);
 router.use('/teve-config', teveConfigRoutes);
 router.use('/teve-tag-config', teveTagConfigRoutes);
-// Proxies to the separately-deployed Tensor Historian (TEVE) service — location is
-// admin-configured, not hardcoded. See teveConfigService / teveProxy.ts.
+// Proxies to the separately-deployed TEVE (Tensor Embedding Vector Engine) service —
+// location is admin-configured, not hardcoded. See teveConfigService / teveProxy.ts.
 router.use('/teve', teveApiProxy);
 router.use('/historian', historianApiProxy);
 router.use('/teve-graphql', teveGraphqlProxy);

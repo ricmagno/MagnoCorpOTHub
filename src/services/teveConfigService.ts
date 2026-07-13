@@ -11,7 +11,7 @@ export interface TeveConfig {
 }
 
 const DEFAULTS: TeveConfig = {
-  // Off by default: the Tensor Historian is a separate, optional service in its own
+  // Off by default: TEVE is a separate, optional service in its own
   // container(s) — most deployments won't have it, so nothing should assume it exists
   // until an admin explicitly configures and enables it.
   enabled: false,

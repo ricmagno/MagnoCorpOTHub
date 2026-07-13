@@ -55,7 +55,7 @@ function makeDataValue(value: unknown, statusName = 'Good'): DataValue {
   } as unknown as DataValue;
 }
 
-describe('TensorHistorianIngestService', () => {
+describe('TeveIngestService', () => {
   let fetchMock: jest.Mock;
   let mockOpcua: { [K in keyof typeof import('../opcuaService').opcuaService]: jest.Mock };
   let mockOpcuaConfig: { [K in keyof typeof import('../opcuaConfigService').opcuaConfigService]: jest.Mock };
@@ -91,7 +91,7 @@ describe('TensorHistorianIngestService', () => {
     mockOpcuaConfig.listConfigurations.mockResolvedValue([{ id: 'cfg1', name: 'Plant A', isActive: true }]);
     mockOpcuaConfig.loadConfiguration.mockResolvedValue({ name: 'Plant A' });
 
-    return require('../tensorHistorianIngestService').tensorHistorianIngestService as typeof import('../tensorHistorianIngestService').tensorHistorianIngestService;
+    return require('../teveIngestService').teveIngestService as typeof import('../teveIngestService').teveIngestService;
   };
 
   it('registers connect/reconnect callbacks and sets up immediately when a session already exists', async () => {
@@ -100,8 +100,8 @@ describe('TensorHistorianIngestService', () => {
 
     expect(mockOpcua.onConnect).toHaveBeenCalledTimes(1);
     expect(mockOpcua.onReconnect).toHaveBeenCalledTimes(1);
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('tensor-historian', 1000);
-    expect(mockOpcua.monitorNode).toHaveBeenCalledWith('tensor-historian', 'ns=2;s=Tag1', 1000, expect.any(Function));
+    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockOpcua.monitorNode).toHaveBeenCalledWith('teve-ingest', 'ns=2;s=Tag1', 1000, expect.any(Function));
   });
 
   it('does not set up subscriptions immediately when no session exists yet', async () => {
@@ -121,10 +121,10 @@ describe('TensorHistorianIngestService', () => {
     onConnectCb();
     await flushAsync();
 
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('tensor-historian', 1000);
+    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 
-  it('skips setup when Tensor Historian is not enabled/configured', async () => {
+  it('skips setup when TEVE is not enabled/configured', async () => {
     const service = load();
     mockTeveConfig.getActiveBaseUrl.mockReturnValue(null);
     await service.start();
@@ -238,7 +238,7 @@ describe('TensorHistorianIngestService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('drops the pending batch without fetching if Tensor Historian becomes disabled before flush', async () => {
+  it('drops the pending batch without fetching if TEVE becomes disabled before flush', async () => {
     const service = load();
     await service.start();
 
@@ -281,7 +281,7 @@ describe('TensorHistorianIngestService', () => {
 
     await service.stop();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('tensor-historian');
+    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // Timer should be cleared — advancing time triggers no further flush.
@@ -298,8 +298,8 @@ describe('TensorHistorianIngestService', () => {
 
     await service.refresh();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('tensor-historian');
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('tensor-historian', 1000);
+    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
+    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 
   it('onReconnect callback triggers a refresh', async () => {
@@ -311,7 +311,7 @@ describe('TensorHistorianIngestService', () => {
     onReconnectCb();
     await flushAsync();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('tensor-historian');
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('tensor-historian', 1000);
+    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
+    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 });

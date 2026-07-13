@@ -433,11 +433,11 @@ async function validateStartupDependencies(): Promise<SystemHealth> {
     setupOpcuaConfigIntegration();
 
     const { alertEvalService } = await import('@/services/alertEvalService');
-    const { tensorHistorianIngestService } = await import('@/services/tensorHistorianIngestService');
+    const { teveIngestService } = await import('@/services/teveIngestService');
     await Promise.race([
       Promise.all([
         alertEvalService.start(),
-        tensorHistorianIngestService.start()
+        teveIngestService.start()
       ]),
       new Promise<void>(resolve => setTimeout(resolve, 5000))
     ]);
@@ -447,7 +447,7 @@ async function validateStartupDependencies(): Promise<SystemHealth> {
       status: 'healthy',
       required: false
     });
-    logger.info('✓ OPC UA integration, Alert Eval Service, and Tensor Historian ingestion initialized');
+    logger.info('✓ OPC UA integration, Alert Eval Service, and TEVE ingestion initialized');
   } catch (error) {
     components.push({
       name: 'OPC UA Integration',
@@ -631,12 +631,12 @@ async function performGracefulShutdown(signal: string): Promise<void> {
     logger.error('✗ Update checker shutdown failed:', error);
   }
 
-  // 9. Stop Alert Eval Service and Tensor Historian ingestion
+  // 9. Stop Alert Eval Service and TEVE ingestion
   try {
     const { alertEvalService } = await import('@/services/alertEvalService');
-    const { tensorHistorianIngestService } = await import('@/services/tensorHistorianIngestService');
-    await Promise.all([alertEvalService.stop(), tensorHistorianIngestService.stop()]);
-    logger.info('✓ Alert evaluation service and Tensor Historian ingestion stopped');
+    const { teveIngestService } = await import('@/services/teveIngestService');
+    await Promise.all([alertEvalService.stop(), teveIngestService.stop()]);
+    logger.info('✓ Alert evaluation service and TEVE ingestion stopped');
   } catch (error) {
     logger.error('✗ Alert evaluation service shutdown failed:', error);
   }

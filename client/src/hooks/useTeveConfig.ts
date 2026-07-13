@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { getAuthToken } from '../services/api';
 
 /**
- * Whether the Tensor Historian (TEVE) integration is configured and enabled — a
- * separate, optional service that most deployments won't have. Used to decide
- * whether the Insights tab should even appear; fails closed (hidden) on any error.
+ * Whether the TEVE (Tensor Embedding Vector Engine) integration is configured and
+ * enabled — a separate, optional service that most deployments won't have. Used to
+ * decide whether the Insights tab should even appear; fails closed (hidden) on any
+ * error.
  */
 export function useTeveEnabled(isAuthenticated: boolean): boolean {
   const [enabled, setEnabled] = useState(false);

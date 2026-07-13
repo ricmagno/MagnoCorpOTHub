@@ -33,7 +33,7 @@ function openDb(): Database.Database {
 
 /**
  * Admin-configured list of OPC UA tags that should be continuously historized into
- * Tensor Historian (see tensorHistorianIngestService.ts). Distinct from alert-monitored
+ * TEVE (see teveIngestService.ts). Distinct from alert-monitored
  * tags (alertEvalService.ts) — a tag can be historized, alerted on, both, or neither.
  */
 class TeveTagConfigService {

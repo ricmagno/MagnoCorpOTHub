@@ -30,7 +30,7 @@ const TIME_RANGE: TimeRange = {
   endTime: new Date('2026-01-01T01:00:00.000Z')
 };
 
-describe('DataRetrievalService — Tensor Historian routing', () => {
+describe('DataRetrievalService — TEVE routing', () => {
   let service: DataRetrievalService;
   let fetchMock: jest.Mock;
 
@@ -43,7 +43,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
   });
 
   describe('getTimeSeriesData("tensor:...")', () => {
-    it('fetches from the Tensor Historian data endpoint and maps the response', async () => {
+    it('fetches from the TEVE data endpoint and maps the response', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -104,7 +104,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
       expect(result[0]!.value).toBe(5);
     });
 
-    it('returns [] without fetching when Tensor Historian is not enabled/configured', async () => {
+    it('returns [] without fetching when TEVE is not enabled/configured', async () => {
       mockTeveConfig.getActiveBaseUrl.mockReturnValue(null);
 
       const result = await service.getTimeSeriesData('tensor:sys.Tag1', TIME_RANGE);
@@ -171,7 +171,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
   });
 
   describe('getTagInfo("tensor:...")', () => {
-    it('returns tag info matched from the Tensor Historian tag list, including its unit', async () => {
+    it('returns tag info matched from the TEVE tag list, including its unit', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -189,7 +189,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
       });
     });
 
-    it('falls back to a synthesized TagInfo when the tag is not in the list (e.g. Tensor Historian unreachable)', async () => {
+    it('falls back to a synthesized TagInfo when the tag is not in the list (e.g. TEVE unreachable)', async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 500 });
 
       const info = await service.getTagInfo('tensor:sys.Unknown');
@@ -199,7 +199,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
   });
 
   describe('getStatistics("tensor:...")', () => {
-    it('computes statistics client-side from fetched Tensor Historian points', async () => {
+    it('computes statistics client-side from fetched TEVE points', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -239,7 +239,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
   });
 
   describe('getTensorTagList', () => {
-    it('maps the Tensor Historian tag catalog into TagInfo entries prefixed with tensor:', async () => {
+    it('maps the TEVE tag catalog into TagInfo entries prefixed with tensor:', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -258,7 +258,7 @@ describe('DataRetrievalService — Tensor Historian routing', () => {
       expect(tags[1]).toMatchObject({ name: 'tensor:sys.B', units: '' });
     });
 
-    it('returns [] without fetching when Tensor Historian is not configured', async () => {
+    it('returns [] without fetching when TEVE is not configured', async () => {
       mockTeveConfig.getActiveBaseUrl.mockReturnValue(null);
 
       const tags = await service.getTensorTagList();

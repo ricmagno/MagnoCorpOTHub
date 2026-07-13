@@ -27,9 +27,9 @@ export class OpcuaService {
     private session: ClientSession | null = null;
     private config: OpcuaConfig | null = null;
     // Keyed, not a single slot: multiple independent consumers (alert evaluation,
-    // Tensor Historian ingestion, ...) each own their own subscription. A single shared
+    // TEVE ingestion, ...) each own their own subscription. A single shared
     // slot meant the second consumer's createSubscription() call silently terminated
-    // the first's — e.g. Tensor Historian ingestion starting up would have killed
+    // the first's — e.g. TEVE ingestion starting up would have killed
     // alerting's monitored items, or an alert config change would have killed ingestion.
     private subscriptions: Map<string, ClientSubscription> = new Map();
     private connectCallbacks: (() => void)[] = [];

@@ -5,9 +5,67 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Download, AlertCircle, CheckCircle, Clock, Info } from 'lucide-react';
+import {
+  RefreshCw, Download, AlertCircle, CheckCircle, Clock, Info,
+  FileText, LayoutDashboard, Bell, CalendarClock, Database, Boxes, Users, Palette, Server
+} from 'lucide-react';
 import { VersionInfo, UpdateCheckResult, UpdateRecord } from '@/types/versionManagement';
+import { useBranding } from '../../hooks/useBranding';
 import './AboutSection.css';
+
+interface FeatureEntry {
+  icon: React.ComponentType<{ size?: number }>;
+  title: string;
+  description: string;
+}
+
+const FEATURES: FeatureEntry[] = [
+  {
+    icon: FileText,
+    title: 'Automated PDF Reports',
+    description: 'Customizable, chart-rich report templates generated from historical tag data and scheduled for recurring delivery.'
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Live Dashboards',
+    description: 'Real-time widgets, gauges, and trend charts backed by live values from the connected data sources.'
+  },
+  {
+    icon: Bell,
+    title: 'Alerts & Notifications',
+    description: 'Threshold-based alerting on live tag values, with email delivery to configured recipients.'
+  },
+  {
+    icon: CalendarClock,
+    title: 'Scheduling',
+    description: 'Cron-based automated report generation and delivery, with a full run history.'
+  },
+  {
+    icon: Database,
+    title: 'Multi-Source Data Integration',
+    description: 'AVEVA (Wonderware) Historian, OPC UA, and TEVE can all be connected independently, each optional.'
+  },
+  {
+    icon: Boxes,
+    title: 'TEVE — Tensor Embedding Vector Engine',
+    description: 'A modern time-series & vector-search historian: similarity search over screenshots, metric-window shapes, and anomaly signatures, alongside ordinary tag historization.'
+  },
+  {
+    icon: Users,
+    title: 'User & Access Management',
+    description: 'Role-based access control with local accounts or LDAP/Active Directory domain authentication.'
+  },
+  {
+    icon: Palette,
+    title: 'White-Label Branding',
+    description: 'Company name, product name, logo, and color scheme are all admin-configurable.'
+  },
+  {
+    icon: Server,
+    title: 'Flexible Deployment',
+    description: 'Runs as a web app, Docker container, Kubernetes deployment, or Electron desktop app.'
+  },
+];
 
 interface AboutSectionProps {
   onUpdateInstalled?: () => void;
@@ -32,6 +90,8 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
   onUpdateInstalled,
   onUpdateFailed
 }) => {
+  const { branding } = useBranding();
+  const productName = [branding.companyName, branding.appName].filter(Boolean).join(' ') || 'MagnoCorp OT Hub';
   const [state, setState] = useState<AboutSectionState>({
     versionInfo: null,
     updateStatus: null,
@@ -330,6 +390,28 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
 
   return (
     <div className="about-section">
+      {/* System Overview */}
+      <div className="about-card overview-card">
+        <h2>About {productName}</h2>
+        <p className="overview-description">
+          {productName} is a unified OT reporting and analytics platform for industrial automation.
+          It connects to industrial data sources — AVEVA (Wonderware) Historian, OPC UA, and TEVE — to
+          extract historical and live tag data, then turns it into printable reports, live dashboards,
+          and threshold-based alerts.
+        </p>
+        <div className="feature-grid">
+          {FEATURES.map((feature) => (
+            <div key={feature.title} className="feature-item">
+              <feature.icon size={18} />
+              <div>
+                <p className="feature-title">{feature.title}</p>
+                <p className="feature-description">{feature.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Version Information */}
       <div className="about-card version-card">
         <h2>Application Information</h2>

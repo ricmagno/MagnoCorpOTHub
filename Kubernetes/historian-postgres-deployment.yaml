@@ -1,4 +1,4 @@
-# Single-replica Postgres (TimescaleDB + pgvector) for the Tensor Historian, matching
+# Single-replica Postgres (TimescaleDB + pgvector) for TEVE (Tensor Embedding Vector Engine), matching
 # the single-node hostPath-volume style already used by magnocorp-othub-deployment.yaml.
 # Before applying, create the init-sql ConfigMap from the schema file already in the repo:
 #   kubectl create configmap historian-init-sql -n magnocorp-othub \

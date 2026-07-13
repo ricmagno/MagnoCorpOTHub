@@ -68,9 +68,9 @@ export function createTeveRouter(db: Pool): Router {
   });
 
   /**
-   * Batch metric ingest — lets Tensor Historian be used as a genuine alternative (or
+   * Batch metric ingest — lets TEVE be used as a genuine alternative (or
    * parallel) historian, not just a read-side search layer: an external collector
-   * (e.g. the main app's tensorHistorianIngestService, subscribed to OPC UA tags)
+   * (e.g. the main app's teveIngestService, subscribed to OPC UA tags)
    * pushes live values here instead of writing to Postgres directly, keeping this
    * service's schema/DB credentials private to itself.
    */

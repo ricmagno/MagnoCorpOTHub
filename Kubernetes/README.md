@@ -40,9 +40,16 @@ kubectl apply -f magnocorp-othub-service.yaml
 kubectl apply -f magnocorp-othub-hpa.yaml
 ```
 
-## Tensor Historian
+## TEVE
 
-Separate deployment from the main app, sharing the same `magnocorp-othub` namespace and `ghcr-regcred` pull secret configured above. See `db/TENSOR_HISTORIAN_IMPLEMENTATION_PLAN_V2.md` for full architecture; images are built by the `build-and-push-historian` job in `.github/workflows/docker-publish.yml` (same version-tag trigger as the main app).
+**TEVE (Tensor Embedding Vector Engine)** is a separate, optional time-series + vector-embedding
+service: it stores historized metrics alongside embeddings of screenshots, metric windows, and
+anomaly signatures, so the app can do similarity search ("find past incidents like this one",
+"search dashboards by description") on top of an ordinary historian. It deploys independently from
+the main app, sharing the same `magnocorp-othub` namespace and `ghcr-regcred` pull secret configured
+above. See `db/TENSOR_HISTORIAN_IMPLEMENTATION_PLAN_V2.md` for full architecture; images are built by
+the `build-and-push-historian` job in `.github/workflows/docker-publish.yml` (same version-tag
+trigger as the main app).
 
 ### 1. Create the init-sql ConfigMap
 ```bash

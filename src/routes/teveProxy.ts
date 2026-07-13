@@ -5,7 +5,7 @@ import { teveConfigService } from '@/services/teveConfigService';
 import { apiLogger } from '@/utils/logger';
 
 /**
- * Proxies browser requests through to the Tensor Historian / TEVE service, whose
+ * Proxies browser requests through to TEVE (Tensor Embedding Vector Engine), whose
  * location is admin-configured (see teveConfigService) rather than hardcoded — it's a
  * separate, optional service in its own container(s) that may not exist for a given
  * deployment. The browser only ever talks to this backend, same-origin, regardless of
@@ -20,7 +20,7 @@ function createTeveProxy(upstreamPath: (reqPath: string) => string): Router {
   router.use(authenticateToken, asyncHandler(async (req: Request, res: Response) => {
     const baseUrl = teveConfigService.getActiveBaseUrl();
     if (!baseUrl) {
-      throw createError('Tensor Historian is not configured or is disabled', 503);
+      throw createError('TEVE is not configured or is disabled', 503);
     }
     if (req.method !== 'GET' && req.method !== 'POST') {
       throw createError('Method not allowed', 405);
@@ -46,7 +46,7 @@ function createTeveProxy(upstreamPath: (reqPath: string) => string): Router {
       const buf = Buffer.from(await upstream.arrayBuffer());
       res.status(upstream.status).send(buf);
     } catch (error: any) {
-      const message = error?.name === 'AbortError' ? 'Tensor Historian request timed out' : String(error?.message ?? error);
+      const message = error?.name === 'AbortError' ? 'TEVE request timed out' : String(error?.message ?? error);
       apiLogger.error('TEVE proxy request failed', { url, message });
       res.status(502).json({ error: message });
     } finally {

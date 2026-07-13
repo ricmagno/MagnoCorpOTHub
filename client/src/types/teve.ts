@@ -1,6 +1,8 @@
 /**
- * Type definitions for the Tensor Historian's TEVE (Tensor Embedding Vector Engine) —
- * a separate service from the main AVEVA Historian integration (see types/historian.ts).
+ * Type definitions for TEVE (Tensor Embedding Vector Engine) — a separate, optional
+ * service that stores historized time-series data alongside vector embeddings (of
+ * screenshots, metric windows, and anomaly signatures) for similarity search. Distinct
+ * from the main AVEVA Historian integration (see types/historian.ts).
  */
 
 export interface TeveScreenshot {

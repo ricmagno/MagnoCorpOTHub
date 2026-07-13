@@ -23,7 +23,13 @@ interface ServicesHealthResponse {
 const SERVICE_META: Record<keyof ServicesHealthResponse['services'], { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   historian: { label: 'AVEVA Historian', icon: Database },
   opcua: { label: 'OPC UA', icon: Radio },
-  tensor: { label: 'Tensor Historian', icon: Boxes }
+  tensor: { label: 'TEVE', icon: Boxes }
+};
+
+// Shown as a tooltip on the TEVE row in the dropdown, since the acronym alone means
+// nothing to a first-time viewer.
+const SERVICE_TOOLTIP: Partial<Record<keyof ServicesHealthResponse['services'], string>> = {
+  tensor: 'TEVE (Tensor Embedding Vector Engine) — historian with vector-embedding similarity search'
 };
 
 const STATUS_META: Record<ServiceStatus, { label: string; dot: string; text: string }> = {
@@ -35,9 +41,10 @@ const STATUS_META: Record<ServiceStatus, { label: string; dot: string; text: str
 
 /**
  * Replaces the old AVEVA-Historian-only header pill: this app now integrates with
- * three independently-configurable data sources (AVEVA Historian, OPC UA, Tensor
- * Historian), each optional. The aggregate pill summarizes overall backend health;
- * the dropdown breaks it down per service so "degraded" doesn't read as ambiguous.
+ * three independently-configurable data sources (AVEVA Historian, OPC UA, TEVE — the
+ * Tensor Embedding Vector Engine), each optional. The aggregate pill summarizes
+ * overall backend health; the dropdown breaks it down per service so "degraded"
+ * doesn't read as ambiguous.
  */
 export const BackendStatusIndicator: React.FC = () => {
   const [data, setData] = useState<ServicesHealthResponse | null>(null);
@@ -126,7 +133,12 @@ export const BackendStatusIndicator: React.FC = () => {
                 <div key={key} className="flex items-center gap-3 px-4 py-2">
                   <Icon className="h-4 w-4 text-gray-400 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{meta.label}</p>
+                    <p
+                      className="text-sm font-medium text-gray-900 truncate"
+                      title={SERVICE_TOOLTIP[key]}
+                    >
+                      {meta.label}
+                    </p>
                     {service.detail && (
                       <p className="text-[11px] text-gray-400 truncate" title={service.detail}>{service.detail}</p>
                     )}

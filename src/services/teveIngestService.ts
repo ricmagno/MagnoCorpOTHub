@@ -5,7 +5,7 @@ import { opcuaConfigService } from './opcuaConfigService';
 import { teveConfigService } from './teveConfigService';
 import { teveTagConfigService } from './teveTagConfigService';
 
-const SUBSCRIPTION_KEY = 'tensor-historian';
+const SUBSCRIPTION_KEY = 'teve-ingest';
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_BATCH = 2000;
 
@@ -19,15 +19,18 @@ interface PendingMetric {
 
 /**
  * Continuously historizes admin-selected OPC UA tags (see teveTagConfigService) into
- * Tensor Historian, so it can serve as a genuine alternative/parallel historian rather
- * than only powering the Insights tab's search features. Pushes over HTTP to the
- * historian service's own ingest endpoint (never touches its database directly — same
- * "reach TEVE only via its configured baseUrl" boundary as the browser-facing proxy).
+ * TEVE — the Tensor Embedding Vector Engine, our separate, optional service that stores
+ * time-series data alongside vector embeddings (of screenshots, metric windows, and
+ * anomaly signatures) for similarity search — so it can serve as a genuine
+ * alternative/parallel historian rather than only powering the Insights tab's search
+ * features. Pushes over HTTP to TEVE's own ingest endpoint (never touches its database
+ * directly — same "reach TEVE only via its configured baseUrl" boundary as the
+ * browser-facing proxy).
  *
  * Owns its own OPC UA subscription (SUBSCRIPTION_KEY), independent of
  * alertEvalService's — see the multi-subscription support added to opcuaService.ts.
  */
-class TensorHistorianIngestService {
+class TeveIngestService {
   private isRunning = false;
   private pending: PendingMetric[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
@@ -37,19 +40,19 @@ class TensorHistorianIngestService {
   async start(): Promise<void> {
     opcuaService.onConnect(() => {
       this.setupSubscriptions().catch((err) =>
-        logger.error('TensorHistorianIngestService: failed to set up subscriptions after connect:', err)
+        logger.error('TeveIngestService: failed to set up subscriptions after connect:', err)
       );
     });
     opcuaService.onReconnect(() => {
       this.refresh().catch((err) =>
-        logger.error('TensorHistorianIngestService: failed to refresh after reconnect:', err)
+        logger.error('TeveIngestService: failed to refresh after reconnect:', err)
       );
     });
 
     if (opcuaService.hasSession()) {
       await this.setupSubscriptions();
     } else {
-      logger.info('TensorHistorianIngestService: no OPC UA session yet — will activate on first connect');
+      logger.info('TeveIngestService: no OPC UA session yet — will activate on first connect');
     }
   }
 
@@ -64,7 +67,7 @@ class TensorHistorianIngestService {
   }
 
   async refresh(): Promise<void> {
-    logger.info('TensorHistorianIngestService: refreshing subscriptions');
+    logger.info('TeveIngestService: refreshing subscriptions');
     await this.stop();
     await this.setupSubscriptions();
   }
@@ -74,13 +77,13 @@ class TensorHistorianIngestService {
 
     const baseUrl = teveConfigService.getActiveBaseUrl();
     if (!baseUrl) {
-      logger.info('TensorHistorianIngestService: Tensor Historian not configured/enabled — skipping');
+      logger.info('TeveIngestService: TEVE not configured/enabled — skipping');
       return;
     }
 
     const tags = teveTagConfigService.list();
     if (tags.length === 0) {
-      logger.info('TensorHistorianIngestService: no tags configured to historize — skipping');
+      logger.info('TeveIngestService: no tags configured to historize — skipping');
       return;
     }
 
@@ -105,10 +108,10 @@ class TensorHistorianIngestService {
     }
 
     this.flushTimer = setInterval(() => {
-      this.flush().catch((err) => logger.error('TensorHistorianIngestService: flush failed:', err));
+      this.flush().catch((err) => logger.error('TeveIngestService: flush failed:', err));
     }, FLUSH_INTERVAL_MS);
 
-    logger.info(`TensorHistorianIngestService: historizing ${tags.length} tag(s) into Tensor Historian`);
+    logger.info(`TeveIngestService: historizing ${tags.length} tag(s) into TEVE`);
   }
 
   private enqueue(tagName: string, dv: DataValue, unit: string | null): void {
@@ -144,12 +147,12 @@ class TensorHistorianIngestService {
       });
       clearTimeout(timeout);
       if (!res.ok) {
-        logger.warn(`TensorHistorianIngestService: ingest returned ${res.status}`, { count: batch.length });
+        logger.warn(`TeveIngestService: ingest returned ${res.status}`, { count: batch.length });
       }
     } catch (err) {
-      logger.warn('TensorHistorianIngestService: ingest request failed (batch dropped):', err);
+      logger.warn('TeveIngestService: ingest request failed (batch dropped):', err);
     }
   }
 }
 
-export const tensorHistorianIngestService = new TensorHistorianIngestService();
+export const teveIngestService = new TeveIngestService();

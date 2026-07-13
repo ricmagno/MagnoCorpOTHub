@@ -109,7 +109,7 @@ export const ConfigurationManagement: React.FC = () => {
                 className={cn("tab-button", configTab === 'teve' && "active")}
                 onClick={() => setConfigTab('teve')}
               >
-                Tensor Historian
+                TEVE
               </button>
             )}
           </div>
@@ -186,7 +186,7 @@ export const ConfigurationManagement: React.FC = () => {
           <div className="mt-6 p-8 text-center text-gray-500 bg-gray-50 rounded-lg border">
             <Lock className="mx-auto mb-3 text-gray-400" size={32} />
             <h3 className="text-lg font-medium text-gray-900">Administrator Access Required</h3>
-            <p className="mt-1">Only administrators can configure the Tensor Historian integration.</p>
+            <p className="mt-1">Only administrators can configure the TEVE integration.</p>
           </div>
         )
       ) : null}

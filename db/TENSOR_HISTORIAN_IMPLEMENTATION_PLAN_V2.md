@@ -1,4 +1,10 @@
-# Tensor Historian: Implementation Plan v2 (Corrected)
+# TEVE: Implementation Plan v2 (Corrected)
+
+**TEVE (Tensor Embedding Vector Engine)** is a separate, optional service that stores historized
+time-series data alongside vector embeddings — of screenshots, metric windows, and anomaly
+signatures — so the app can do similarity search on top of an ordinary historian (e.g. "find past
+incidents like this one," "search dashboards by description").
+
 ## Supersedes the v1 plan (removed from this repo — see new_feature.md for the review that retired it)
 
 **Status**: Corrected and verified against library APIs

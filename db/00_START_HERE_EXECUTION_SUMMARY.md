@@ -1,4 +1,4 @@
-# Tensor Historian: Execution Summary
+# TEVE: Execution Summary
 
 Start here. This document orients you, then hands off to the implementation plan.
 
@@ -101,7 +101,7 @@ Follow Plan Phase 5: Kubernetes deployment with the embedding worker as a **sepa
           of whether an ingress unifies hosts — replaces the earlier
           client/src/setupProxy.js approach (deleted)
         - client/src/components/configuration/TeveConfiguration.tsx — new admin tab
-          ("Tensor Historian") in ConfigurationManagement.tsx: enable toggle, base URL,
+          ("TEVE") in ConfigurationManagement.tsx: enable toggle, base URL,
           Test Connection, Save — same pattern as Branding/Identity Provider tabs
         - client/src/hooks/useTeveConfig.ts — Dashboard.tsx only shows the Insights
           tab when TEVE is actually enabled; fails closed (hidden) on any error
@@ -122,18 +122,18 @@ Follow Plan Phase 5: Kubernetes deployment with the embedding worker as a **sepa
       no browser automation available in this environment, so the visual layout,
       click-through flows, and console-error-free rendering are unconfirmed.
 
-      Positioning correction (2026-07-09): Tensor Historian is meant as a genuine
+      Positioning correction (2026-07-09): TEVE is meant as a genuine
       alternative historian, not merely an Insights-tab add-on riding on AVEVA Historian.
       Closed the two gaps that made that claim false:
         - src/historian/routes/teve-compatibility.ts — new POST /api/teve/ingest
           (batch metric write, upserts historian.scada_systems + historian.metrics).
-          Tensor Historian's own DB/credentials stay private to the historian service —
+          TEVE's own DB/credentials stay private to the historian service —
           nothing outside it writes to Postgres directly.
         - src/services/opcuaService.ts — real bug found and fixed while wiring the
           ingestion service: subscriptions and connect/reconnect callbacks were single
           slots, silently overwritten by a second consumer. A second consumer calling
           createSubscription() would have TERMINATED alertEvalService's live alarm
-          monitoring the moment Tensor Historian ingestion started. Refactored to keyed
+          monitoring the moment TEVE ingestion started. Refactored to keyed
           subscriptions (Map<string, ClientSubscription>) and callback arrays;
           alertEvalService.ts updated to pass its 'alerts' key at all 6 call sites.
           opcuaService_retry.test.ts's mock was missing an .on() method (masked by the
@@ -146,7 +146,7 @@ Follow Plan Phase 5: Kubernetes deployment with the embedding worker as a **sepa
           POST /api/teve/ingest every 5s. Wired into server.ts startup/shutdown
           alongside alertEvalService.
         - client/src/components/configuration/TeveHistorizeTags.tsx — new tag-list
-          management UI (add/remove by node ID), rendered inside the Tensor Historian
+          management UI (add/remove by node ID), rendered inside the TEVE
           config tab below the connection settings.
         - Corrected misleading copy in TeveConfiguration.tsx ("not a replacement for
           it" → usable standalone or alongside AVEVA Historian).

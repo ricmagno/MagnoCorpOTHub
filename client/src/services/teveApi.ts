@@ -1,5 +1,5 @@
 /**
- * Client for the Tensor Historian's TEVE service. Requests go through the main
+ * Client for TEVE (Tensor Embedding Vector Engine). Requests go through the main
  * backend's proxy (src/routes/teveProxy.ts), same-origin, same auth as every other
  * /api/* call — the backend forwards to wherever TEVE is actually deployed (a
  * separate, optional service in its own container, admin-configured; see
@@ -26,7 +26,7 @@ async function authedFetch(url: string, options?: RequestInit): Promise<Response
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(url, { ...options, headers: { ...headers, ...options?.headers } });
   if (res.status === 503) {
-    throw new TeveApiError('Tensor Historian is not configured or is disabled', 503);
+    throw new TeveApiError('TEVE is not configured or is disabled', 503);
   }
   return res;
 }

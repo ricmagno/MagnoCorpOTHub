@@ -106,7 +106,7 @@ export const TeveHistorizeTags: React.FC = () => {
         <div>
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Tags to Historize</h3>
           <p className="text-xs text-gray-500 mt-1">
-            OPC UA tags continuously written into Tensor Historian. Changes take effect on the next OPC UA
+            OPC UA tags continuously written into TEVE. Changes take effect on the next OPC UA
             reconnect (or you can trigger a refresh from the OPC UA connection settings).
           </p>
         </div>
@@ -158,7 +158,7 @@ export const TeveHistorizeTags: React.FC = () => {
         <div className="text-sm text-gray-500">Loading…</div>
       ) : tags.length === 0 ? (
         <div className="text-sm text-gray-500 py-6 text-center bg-gray-50 rounded-lg">
-          No tags configured — Tensor Historian ingestion is idle until at least one is added.
+          No tags configured — TEVE ingestion is idle until at least one is added.
         </div>
       ) : (
         <div className="space-y-1.5">

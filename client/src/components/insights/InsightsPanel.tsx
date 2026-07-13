@@ -16,7 +16,7 @@ const SUB_TABS: { id: InsightsSubTab; label: string; icon: React.ComponentType<{
 /**
  * TEVE (Tensor Embedding Vector Engine) search — text search over captured SCADA
  * screenshots, similar-shape lookup for metric windows, and similar-incident lookup
- * for anomalies. Talks to the separate Tensor Historian service (see teveApi.ts).
+ * for anomalies. Talks to the separate TEVE service (see teveApi.ts).
  */
 export const InsightsPanel: React.FC = () => {
   const [subTab, setSubTab] = useState<InsightsSubTab>('screens');

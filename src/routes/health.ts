@@ -238,7 +238,7 @@ router.get('/historian', asyncHandler(async (req: Request, res: Response) => {
 /**
  * GET /api/health/services
  * Combined status for every independently-configurable data-source integration
- * (AVEVA Historian, OPC UA, Tensor Historian) — each is optional, so "not configured"
+ * (AVEVA Historian, OPC UA, TEVE) — each is optional, so "not configured"
  * and "disabled" are distinct, non-error states from "unhealthy". Powers the header
  * status indicator, which used to reflect AVEVA Historian alone.
  */

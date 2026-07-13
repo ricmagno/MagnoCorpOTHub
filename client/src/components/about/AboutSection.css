@@ -50,6 +50,52 @@
   color: #111827;
 }
 
+/* Overview Card */
+.overview-description {
+  margin: 0 0 20px 0;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.feature-item svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #0ea5e9;
+}
+
+.feature-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.feature-description {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Version Card */
 .version-card .version-info {
   display: flex;

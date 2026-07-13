@@ -17,10 +17,11 @@ interface TeveForm {
 const DEFAULTS: TeveForm = { enabled: false, baseUrl: '' };
 
 /**
- * Admin settings for the Tensor Historian (TEVE) integration — a separate, optional
- * time-series/vector-search service deployed in its own container(s) alongside the
- * AVEVA Historian, not a replacement for it. Most deployments won't have this
- * service; it stays disabled until an admin points it at a real instance.
+ * Admin settings for the TEVE (Tensor Embedding Vector Engine) integration — a
+ * separate, optional time-series/vector-search service deployed in its own
+ * container(s) alongside the AVEVA Historian, not a replacement for it. Most
+ * deployments won't have this service; it stays disabled until an admin points it
+ * at a real instance.
  */
 export const TeveConfiguration: React.FC = () => {
   const [form, setForm] = useState<TeveForm>(DEFAULTS);
@@ -45,7 +46,7 @@ export const TeveConfiguration: React.FC = () => {
   const handleSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.enabled && !form.baseUrl.trim()) {
-      toastError('Base URL required', 'Enter the Tensor Historian’s URL before enabling it.');
+      toastError('Base URL required', 'Enter TEVE’s URL before enabling it.');
       return;
     }
     setIsSaving(true);
@@ -58,9 +59,9 @@ export const TeveConfiguration: React.FC = () => {
       if (!res.ok) throw new Error(await res.text());
       const updated = await res.json();
       setForm({ ...DEFAULTS, ...updated });
-      success('Tensor Historian settings saved', 'Your changes are now live.');
+      success('TEVE settings saved', 'Your changes are now live.');
     } catch {
-      toastError('Save failed', 'Could not update Tensor Historian settings.');
+      toastError('Save failed', 'Could not update TEVE settings.');
     } finally {
       setIsSaving(false);
     }
@@ -99,9 +100,10 @@ export const TeveConfiguration: React.FC = () => {
         <div className="flex items-start gap-3">
           <Boxes className="h-5 w-5 text-gray-400 mt-0.5" />
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Tensor Historian (TEVE)</h3>
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">TEVE</h3>
             <p className="text-xs text-gray-500 mt-1">
-              A modern time-series &amp; vector-search historian, deployed in its own container(s) — usable
+              <strong className="font-medium text-gray-600">TEVE</strong> — Tensor Embedding Vector Engine — is
+              a modern time-series &amp; vector-search historian, deployed in its own container(s) — usable
               alongside the AVEVA Historian for added capability (screenshot search, similar trends, similar
               anomalies in the Insights tab), or as a standalone alternative historian in its own right. Most
               deployments won't have this running yet; leave disabled if you don't.
@@ -115,7 +117,7 @@ export const TeveConfiguration: React.FC = () => {
             'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shrink-0 ml-4',
             form.enabled ? 'bg-primary-600' : 'bg-gray-300'
           )}
-          aria-label="Toggle Tensor Historian integration"
+          aria-label="Toggle TEVE integration"
         >
           <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white transition-transform', form.enabled ? 'translate-x-6' : 'translate-x-1')} />
         </button>

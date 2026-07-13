@@ -59,7 +59,7 @@ export class DataRetrievalService {
       return this.getOpcuaTimeSeriesData(tagName, timeRange, options);
     }
 
-    // 2. Check for Tensor Historian tags — a separate, optional, admin-configured
+    // 2. Check for TEVE tags — a separate, optional, admin-configured
     // alternative/parallel historian (see teveConfigService). Not the AVEVA connection.
     if (tagName.startsWith('tensor:')) {
       return this.getTensorTimeSeriesData(tagName, timeRange);
@@ -276,7 +276,7 @@ export class DataRetrievalService {
     tagName: string,
     timeRange: TimeRange
   ): Promise<StatisticsResult> {
-    // Tensor Historian has no SQL aggregate endpoint of its own — fetch the raw
+    // TEVE has no SQL aggregate endpoint of its own — fetch the raw
     // points (already routed correctly) and compute stats the same way report
     // generation does for provided-but-uncomputed tags (statisticalAnalysisService).
     if (tagName.startsWith('tensor:')) {
@@ -489,7 +489,7 @@ export class DataRetrievalService {
     try {
       dbLogger.info('Retrieving multiple time-series data', { tagNames, timeRange });
 
-      // Split Historian, OPC UA, and Tensor Historian tags
+      // Split Historian, OPC UA, and TEVE tags
       const historianTags = tagNames.filter(t => !t.startsWith('opcua:') && !t.startsWith('tensor:'));
       const opcuaTags = tagNames.filter(t => t.startsWith('opcua:'));
       const tensorTags = tagNames.filter(t => t.startsWith('tensor:'));
@@ -532,14 +532,14 @@ export class DataRetrievalService {
         });
       }
 
-      // Handle Tensor Historian tags if any
+      // Handle TEVE tags if any
       if (tensorTags.length > 0) {
         const tensorPromises = tensorTags.map(async (tagName) => {
           try {
             const data = await this.getTensorTimeSeriesData(tagName, timeRange);
             return { tagName, data };
           } catch (error) {
-            dbLogger.warn(`Tensor Historian tag query failed: ${tagName}`, { error });
+            dbLogger.warn(`TEVE tag query failed: ${tagName}`, { error });
             return { tagName, data: [] };
           }
         });
@@ -579,7 +579,7 @@ export class DataRetrievalService {
 
         if (cachedTags) {
           dbLogger.debug(`Cache hit for tag list${filter ? ` with filter: ${filter}` : ''}`);
-          // Tensor Historian's enabled/configured state can change independently of the
+          // TEVE's enabled/configured state can change independently of the
           // AVEVA tag cache TTL, so it's always fetched fresh rather than cached here.
           return [...cachedTags, ...this.filterTensorTags(await this.getTensorTagList(), filter)];
         }
@@ -659,7 +659,7 @@ export class DataRetrievalService {
    */
   async getTagInfo(tagName: string): Promise<TagInfo | null> {
     if (tagName.startsWith('tensor:')) {
-      // Tensor Historian doesn't carry AVEVA-style tag metadata (engineering units
+      // TEVE doesn't carry AVEVA-style tag metadata (engineering units
       // catalog, min/max range) — the identifier itself (tensor:System.TagName) plus
       // whatever unit came back from /api/teve/tags is all there is.
       const tags = await this.getTensorTagList();
@@ -920,7 +920,7 @@ export class DataRetrievalService {
   }
 
   /**
-   * Helper to retrieve time-series data from Tensor Historian — a separate, optional,
+   * Helper to retrieve time-series data from TEVE — a separate, optional,
    * admin-configured historian (see teveConfigService), reached only via its configured
    * baseUrl (never a direct DB connection, same boundary as the browser-facing proxy).
    * Tag identifier format: tensor:<scadaSystemId>.<tagName>.
@@ -931,13 +931,13 @@ export class DataRetrievalService {
   ): Promise<TimeSeriesData[]> {
     const baseUrl = teveConfigService.getActiveBaseUrl();
     if (!baseUrl) {
-      dbLogger.warn('Tensor Historian tag requested but the service is not enabled/configured', { tagName });
+      dbLogger.warn('TEVE tag requested but the service is not enabled/configured', { tagName });
       return [];
     }
 
     const tag = tagName.replace('tensor:', '');
     if (!tag.includes('.')) {
-      dbLogger.warn('Invalid Tensor Historian tag format, expected tensor:System.TagName', { tagName });
+      dbLogger.warn('Invalid TEVE tag format, expected tensor:System.TagName', { tagName });
       return [];
     }
 
@@ -956,7 +956,7 @@ export class DataRetrievalService {
         clearTimeout(timeout);
       }
       if (!res.ok) {
-        dbLogger.warn(`Tensor Historian data request returned ${res.status}`, { tagName });
+        dbLogger.warn(`TEVE data request returned ${res.status}`, { tagName });
         return [];
       }
       const body = await res.json() as { data: Array<{ DateTime: string; Value: number | null; Status: string }> };
@@ -978,13 +978,13 @@ export class DataRetrievalService {
         })
         .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     } catch (error) {
-      dbLogger.warn('Failed to read Tensor Historian data', { tagName, error: error instanceof Error ? error.message : 'Unknown error' });
+      dbLogger.warn('Failed to read TEVE data', { tagName, error: error instanceof Error ? error.message : 'Unknown error' });
       return [];
     }
   }
 
   /**
-   * List available Tensor Historian tags (tensor:<scadaSystemId>.<tagName>), for use
+   * List available TEVE tags (tensor:<scadaSystemId>.<tagName>), for use
    * alongside AVEVA tags in report/dashboard tag pickers. Returns [] when the service
    * is disabled/unconfigured or unreachable — never throws, so callers merging this
    * into a broader tag list don't need special-case handling.
@@ -1003,7 +1003,7 @@ export class DataRetrievalService {
         clearTimeout(timeout);
       }
       if (!res.ok) {
-        dbLogger.warn(`Tensor Historian tag list request returned ${res.status}`);
+        dbLogger.warn(`TEVE tag list request returned ${res.status}`);
         return [];
       }
       const body = await res.json() as { tags: Array<{ tag_id: string; tag_unit: string | null }> };
@@ -1016,7 +1016,7 @@ export class DataRetrievalService {
         dataSource: 'tensor' as const
       }));
     } catch (error) {
-      dbLogger.warn('Failed to retrieve Tensor Historian tag list', { error: error instanceof Error ? error.message : 'Unknown error' });
+      dbLogger.warn('Failed to retrieve TEVE tag list', { error: error instanceof Error ? error.message : 'Unknown error' });
       return [];
     }
   }

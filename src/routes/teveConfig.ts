@@ -8,7 +8,7 @@ const requireAdmin = requireRole('admin');
 const router = Router();
 
 // Authenticated (not admin-only): the Insights tab needs this to decide whether to
-// render at all — the Tensor Historian is a separate, optional service that may not
+// render at all — TEVE is a separate, optional service that may not
 // be deployed for a given customer.
 router.get('/', authenticateToken, asyncHandler(async (_req: Request, res: Response) => {
   res.json(teveConfigService.getConfig());
@@ -20,7 +20,7 @@ router.put('/', authenticateToken, requireAdmin, asyncHandler(async (req: Reques
     throw createError('baseUrl must be a string', 400);
   }
   if (enabled === true && !(baseUrl ?? teveConfigService.getConfig().baseUrl)) {
-    throw createError('baseUrl is required to enable the Tensor Historian integration', 400);
+    throw createError('baseUrl is required to enable the TEVE integration', 400);
   }
   const updated = teveConfigService.updateConfig({ enabled, baseUrl });
   apiLogger.info('TEVE config updated', { userId: req.user?.id, enabled: updated.enabled });
