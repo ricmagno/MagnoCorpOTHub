@@ -14,7 +14,6 @@ Welcome to the MagnoCorpOTHub project! To ensure smooth collaboration and high c
 
 2.  **Running the Project**:
     *   Full development stack (Express + React): `npm run start:dev`
-    *   Electron development: `npm run electron:dev`
 
 ## 🌿 Branching Strategy
 

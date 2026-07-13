@@ -63,7 +63,7 @@ const FEATURES: FeatureEntry[] = [
   {
     icon: Server,
     title: 'Flexible Deployment',
-    description: 'Runs as a web app, Docker container, Kubernetes deployment, or Electron desktop app.'
+    description: 'Runs as a web app, Docker container, or Kubernetes deployment.'
   },
 ];
 

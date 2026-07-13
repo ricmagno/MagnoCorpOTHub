@@ -27,7 +27,6 @@ This repository is optimized for AI coding agents. Key documentation:
 ### Architecture
 - **Backend**: Node.js/TypeScript with Express.js
 - **Frontend**: React.js with Tailwind CSS
-- **Desktop**: Electron (cross-platform: Windows, macOS)
 - **Database**: AVEVA Historian (Microsoft SQL Server) + SQLite (config)
 - **Caching**: Redis (optional)
 - **Reporting**: PDFKit for PDF generation
@@ -66,7 +65,6 @@ This repository is optimized for AI coding agents. Key documentation:
 | `tsx` | TypeScript execution |
 | `jest`, `ts-jest` | Testing framework |
 | `fast-check` | Property-based testing |
-| `electron`, `electron-builder` | Desktop app packaging |
 | `concurrently` | Run multiple commands |
 | `eslint` | Code linting |
 
@@ -120,7 +118,6 @@ MagnoCorpOTHub/
 │   ├── utils/
 │   │   ├── logger.ts           # Winston logging utilities
 │   │   └── retryHandler.ts     # Retry logic with exponential backoff
-│   └── electron/               # Electron-specific code
 ├── client/                     # React frontend
 │   ├── src/
 │   │   ├── components/         # UI components
@@ -155,9 +152,6 @@ MagnoCorpOTHub/
 - **Node.js**: >= 18.0.0
 - **Database**: Microsoft SQL Server (AVEVA Historian)
 - **Optional**: Redis for caching
-- **For Electron builds**:
-  - Windows: Wine + Mono (for cross-compilation from macOS)
-  - macOS: Xcode command line tools
 
 ### Setup Instructions
 
@@ -177,7 +171,7 @@ cp .env.example .env
 ```bash
 npm run build          # Backend
 npm run build:client   # Frontend
-npm run build:all      # Both + Electron
+npm run build:all      # Both
 ```
 
 ### Available Scripts
@@ -190,14 +184,11 @@ npm run build:all      # Both + Electron
 | `npm run start` | Start production server |
 | `npm run build` | Compile TypeScript to JavaScript |
 | `npm run build:client` | Build React frontend |
-| `npm run build:all` | Build backend + client + Electron |
+| `npm run build:all` | Build backend + client |
 | `npm run test` | Run Jest unit tests |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:property` | Run property-based tests |
 | `npm run lint` | Run ESLint |
-| `npm run electron:dev` | Run Electron app in development |
-| `npm run electron:build:win` | Build Windows installer |
-| `npm run electron:build:mac` | Build macOS installer |
 | `npm run docker:build` | Build Docker image (multi-arch: AMD64 & ARM64) |
 | `npm run docker:dev` | Start with Docker Compose |
 | `./release.sh <version>` | Create release and trigger auto-deployment |
@@ -672,7 +663,6 @@ journalctl -u magnocorp-othub-autodeploy.service
 | **OPC UA Connection Failures** | Check endpoint security mode; try `SignAndEncrypt` |
 | **Database Connection Timeout** | Increase `DB_TIMEOUT_MS` in environment |
 | **PDF Generation Errors** | Verify canvas native module installation |
-| **Electron Build Issues** | Check code signing certificates in `build-secrets/` |
 | **Kubernetes Pod Not Starting** | Check `ghcr-regcred` secret; verify GitHub PAT has `read:packages` scope |
 | **Autodeploy Not Triggering** | Check `systemctl status magnocorp-othub-autodeploy.timer`; verify network access to GitHub API |
 | **Image Pull Errors** | Ensure image tag exists on GHCR; check `kubectl describe pod` for details |

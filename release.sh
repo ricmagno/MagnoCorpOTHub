@@ -70,7 +70,6 @@ echo "----------------------------------------------------------------------"
 echo "✅ Step 1/2 Complete: Code is pushed and Tag is created."
 echo "⌛ GitHub Actions is now building in parallel:"
 echo "   - Docker image: Building linux/amd64 and linux/arm64..."
-echo "   - Electron app: Building for Windows (.exe) and macOS (.dmg/.zip)..."
 echo "   This usually takes 3-5 minutes."
 echo "----------------------------------------------------------------------"
 

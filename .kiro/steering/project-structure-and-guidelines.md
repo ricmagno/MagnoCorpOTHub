@@ -21,10 +21,6 @@ This document provides comprehensive information about the project structure, co
 - SQLite (Configuration storage)
 - Prisma (PostgreSQL for user management)
 
-**Desktop Application:**
-- Electron for cross-platform desktop deployment
-- Multi-architecture support (ARM64/AMD64)
-
 **Build & Deployment:**
 - Docker multi-stage builds
 - Docker Compose for orchestration
@@ -445,19 +441,6 @@ npm run docker:dev       # Run with Docker Compose
 npm test                 # Run all tests
 npm run test:watch       # Run tests in watch mode
 npm run test:property    # Run property-based tests
-```
-
-### Code Signing (macOS)
-
-**OpenSSL Legacy:**
-- Use `-legacy` flag in OpenSSL 3.x for `.p12` certificates
-- Ensures compatibility with macOS `security` tool
-
-**Trust Requirements:**
-```bash
-sudo security add-trusted-cert -d -r trustRoot \
-  -k /Library/Keychains/System.keychain \
-  build-secrets/self-signed.crt
 ```
 
 ## 📋 Important Gotchas

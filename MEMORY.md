@@ -33,4 +33,3 @@ This file stores persistent contextual knowledge, technical breakthroughs, and c
 ## 📁 Repository Structure
 - **`.agents/`**: Contains AI-specific workflows.
 - **`brain/`**: (Conversation-specific) Stores implementation plans, tasks, and walkthroughs.
-- **`build-secrets/`**: Stores signing certificates (ignored by git).
