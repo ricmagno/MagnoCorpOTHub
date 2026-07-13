@@ -1,6 +1,6 @@
 # Use Cases Spec
 
-This document defines the authoritative use cases for the Historian Reports application.
+This document defines the authoritative use cases for the MagnoCorpOTHub application.
 
 ## 1. Data Retrieval
 - **Description**: Users or automated services query historical data from AVEVA Historian or real-time data from OPC UA servers.

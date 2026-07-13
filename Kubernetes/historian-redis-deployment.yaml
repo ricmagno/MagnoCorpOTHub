@@ -1,0 +1,72 @@
+# Dedicated Redis for the Bull embedding queue — separate from the app's own cache
+# Redis (magnocorp-othub-cache) so job-queue traffic never competes with report caching.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: historian-redis
+  namespace: magnocorp-othub
+  labels:
+    app: historian-redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: historian-redis
+  template:
+    metadata:
+      labels:
+        app: historian-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: historian-redis-data
+              mountPath: /data
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      volumes:
+        - name: historian-redis-data
+          hostPath:
+            path: /mnt/historian-tensor/redis
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: historian-redis
+  namespace: magnocorp-othub
+  labels:
+    app: historian-redis
+spec:
+  selector:
+    app: historian-redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP

@@ -77,6 +77,9 @@ describe('OpcuaService Retry Logic', () => {
             connect: jest.fn(),
             createSession: jest.fn(),
             disconnect: jest.fn().mockResolvedValue(undefined),
+            // Real OPCUAClient instances are EventEmitters; opcuaService always wires
+            // up a 'connection_reestablished' listener on connect (not conditionally).
+            on: jest.fn(),
         };
 
         (OPCUAClient.create as jest.Mock).mockReturnValue(mockClient);

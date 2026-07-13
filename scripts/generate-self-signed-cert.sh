@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-CERT_NAME="Historian Reports Self-Signed"
+CERT_NAME="MagnoCorpOTHub Self-Signed"
 ORGANIZATION="Kagome Reports"
 CERT_DIR="./build-secrets"
 P12_FILE="${CERT_DIR}/self-signed.p12"

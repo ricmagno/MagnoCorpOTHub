@@ -1,0 +1,64 @@
+# Embedding worker pods: each loads the ~600MB CLIP model (baked into the image at
+# build time, no runtime internet egress — see Dockerfile.historian model-warmup stage).
+# Concurrency 4 per worker; scale by adding replicas, not by raising HISTORIAN_WORKER_CONCURRENCY
+# (embedding is CPU-bound in-process — see src/historian/workers/embedding-queue.ts).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: historian-worker
+  namespace: magnocorp-othub
+  labels:
+    app: historian-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: historian-worker
+  template:
+    metadata:
+      labels:
+        app: historian-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-regcred
+      containers:
+        - name: historian-worker
+          image: ghcr.io/ricmagno/magnocorpothub-historian-worker:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3101
+          envFrom:
+            - secretRef:
+                name: historian-env
+          env:
+            - name: HISTORIAN_WORKER_CONCURRENCY
+              value: "4"
+            - name: HISTORIAN_WORKER_HEALTH_PORT
+              value: "3101"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi # ~600MB CLIP model + working memory
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3101
+            initialDelaySeconds: 15 # model load time
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3101
+            initialDelaySeconds: 30
+            periodSeconds: 20
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"

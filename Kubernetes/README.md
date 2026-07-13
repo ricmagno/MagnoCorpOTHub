@@ -40,6 +40,41 @@ kubectl apply -f magnocorp-othub-service.yaml
 kubectl apply -f magnocorp-othub-hpa.yaml
 ```
 
+## Tensor Historian
+
+Separate deployment from the main app, sharing the same `magnocorp-othub` namespace and `ghcr-regcred` pull secret configured above. See `db/TENSOR_HISTORIAN_IMPLEMENTATION_PLAN_V2.md` for full architecture; images are built by the `build-and-push-historian` job in `.github/workflows/docker-publish.yml` (same version-tag trigger as the main app).
+
+### 1. Create the init-sql ConfigMap
+```bash
+kubectl create configmap historian-init-sql -n magnocorp-othub \
+  --from-file=init.sql=database/init.sql
+```
+
+### 2. Configure secrets
+Update `historian-secret.yaml` with real values (DB/MinIO credentials), then apply it:
+```bash
+kubectl apply -f historian-secret.yaml
+```
+
+### 3. Deploy the data tier
+```bash
+kubectl apply -f historian-postgres-deployment.yaml
+kubectl apply -f historian-redis-deployment.yaml
+kubectl apply -f historian-minio-deployment.yaml
+kubectl apply -f historian-networkpolicy.yaml
+```
+
+### 4. Deploy the API and worker
+```bash
+kubectl apply -f historian-api-deployment.yaml
+kubectl apply -f historian-worker-deployment.yaml
+kubectl apply -f historian-ingress.yaml
+```
+
+**Note**: both images bake in the CLIP model cache at build time (`HISTORIAN_ALLOW_REMOTE_MODELS=false`), so no pod needs runtime internet access — required for air-gapped plant networks. Worker pods load the vision model at startup; API pods lazily load the smaller text encoder on the first `/api/teve/search` call (the API memory limit includes ~250MB headroom for it). The API image also ships Chromium (Puppeteer) for screenshot capture.
+
+After schema changes, run the historian migration runner against the deployed database (from a machine that can reach it): `npm run historian:migrate` — it applies any pending `database/migrations/*.sql` and is a no-op otherwise.
+
 ## Automated Deployment (Watchdog)
 
 To enable zero-manual deployment, set up the "Pull" watchdog on your SCADA server. This service checks GitHub every 5 minutes and updates the cluster if a new version is released.

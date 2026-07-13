@@ -140,9 +140,9 @@ function createMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow!, {
               type: 'info',
-              title: 'About Historian Reports',
-              message: 'Historian Reports',
-              detail: `Version ${app.getVersion()}\n\nProfessional reporting application for AVEVA Historian database`
+              title: 'About MagnoCorpOTHub',
+              message: 'MagnoCorpOTHub',
+              detail: `Version ${app.getVersion()}\n\nMagnoCorpOTHub: the unified OT reporting and analytics platform for industrial automation`
             })
           }
         }

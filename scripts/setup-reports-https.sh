@@ -10,7 +10,7 @@ DOMAIN="reports.kagome.com.au"
 TARGET_PORT=3001
 IP_ADDR="192.168.235.16"
 
-echo "=== Historian Reports HTTPS Setup for $DOMAIN ==="
+echo "=== MagnoCorpOTHub HTTPS Setup for $DOMAIN ==="
 
 # 1. Install Nginx if not present
 if ! command -v nginx &> /dev/null; then

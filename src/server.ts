@@ -110,7 +110,7 @@ if (fs.existsSync(indexHtmlPath)) {
   // In development, if build is missing, provide a helpful message for port 3001
   app.get('/', (req, res) => {
     res.json({
-      message: 'Historian Reports API is running.',
+      message: 'MagnoCorpOTHub API is running.',
       frontend: 'Development server is likely on port 3000.',
       status: 'Ready'
     });
@@ -433,14 +433,21 @@ async function validateStartupDependencies(): Promise<SystemHealth> {
     setupOpcuaConfigIntegration();
 
     const { alertEvalService } = await import('@/services/alertEvalService');
-    await alertEvalService.start();
+    const { tensorHistorianIngestService } = await import('@/services/tensorHistorianIngestService');
+    await Promise.race([
+      Promise.all([
+        alertEvalService.start(),
+        tensorHistorianIngestService.start()
+      ]),
+      new Promise<void>(resolve => setTimeout(resolve, 5000))
+    ]);
 
     components.push({
       name: 'OPC UA Integration',
       status: 'healthy',
       required: false
     });
-    logger.info('✓ OPC UA integration and Alert Eval Service initialized');
+    logger.info('✓ OPC UA integration, Alert Eval Service, and Tensor Historian ingestion initialized');
   } catch (error) {
     components.push({
       name: 'OPC UA Integration',
@@ -624,11 +631,12 @@ async function performGracefulShutdown(signal: string): Promise<void> {
     logger.error('✗ Update checker shutdown failed:', error);
   }
 
-  // 9. Stop Alert Eval Service
+  // 9. Stop Alert Eval Service and Tensor Historian ingestion
   try {
     const { alertEvalService } = await import('@/services/alertEvalService');
-    alertEvalService.stop();
-    logger.info('✓ Alert evaluation service stopped');
+    const { tensorHistorianIngestService } = await import('@/services/tensorHistorianIngestService');
+    await Promise.all([alertEvalService.stop(), tensorHistorianIngestService.stop()]);
+    logger.info('✓ Alert evaluation service and Tensor Historian ingestion stopped');
   } catch (error) {
     logger.error('✗ Alert evaluation service shutdown failed:', error);
   }
@@ -653,12 +661,12 @@ async function performGracefulShutdown(signal: string): Promise<void> {
  */
 async function startServer(): Promise<void> {
   try {
-    logger.info('Starting Historian Reports Application...');
+    logger.info('Starting MagnoCorpOTHub Application...');
 
     // Start HTTP server IMMEDIATELY to respond to health checks
     const server = httpServer.listen(env.PORT, () => {
       logger.info(`✓ HTTP server started on port ${env.PORT} in ${env.NODE_ENV} mode`);
-      logger.info('Historian Reports Application is starting up...');
+      logger.info('MagnoCorpOTHub Application is starting up...');
     });
 
     // Enhanced graceful shutdown handling
@@ -699,8 +707,18 @@ async function startServer(): Promise<void> {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
 
-    // Perform comprehensive startup validation
-    const systemHealth = await validateStartupDependencies();
+    // Perform startup validation with a hard cap so the server always becomes
+    // ready even when optional services (OPC UA, SMTP, Historian) hang.
+    const STARTUP_TIMEOUT_MS = 20_000;
+    const systemHealth = await Promise.race([
+      validateStartupDependencies(),
+      new Promise<Awaited<ReturnType<typeof validateStartupDependencies>>>(resolve =>
+        setTimeout(() => {
+          logger.warn(`Startup validation exceeded ${STARTUP_TIMEOUT_MS / 1000}s — starting in degraded mode. Configure connections via Application Configuration.`);
+          resolve({ overall: 'degraded', components: [], timestamp: new Date().toISOString(), startupTime: STARTUP_TIMEOUT_MS });
+        }, STARTUP_TIMEOUT_MS)
+      )
+    ]);
 
     // Check if system can start
     if (systemHealth.overall === 'unhealthy') {
@@ -739,7 +757,7 @@ async function startServer(): Promise<void> {
     logger.info('  GET  /api/schedules - Manage schedules');
     logger.info('  POST /api/auth/login - User authentication');
 
-    logger.info('Historian Reports Application is ready to serve requests');
+    logger.info('MagnoCorpOTHub Application is ready to serve requests');
 
     // Handle uncaught exceptions and unhandled rejections
     process.on('uncaughtException', (error) => {

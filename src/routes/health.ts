@@ -10,8 +10,20 @@ import { cacheManager } from '@/services/cacheManager';
 import { apiLogger } from '@/utils/logger';
 import { asyncHandler } from '@/middleware/errorHandler';
 import { env } from '@/config/environment';
+import { databaseConfigService } from '@/services/databaseConfigService';
+import { opcuaConfigService } from '@/services/opcuaConfigService';
+import { opcuaService } from '@/services/opcuaService';
+import { teveConfigService } from '@/services/teveConfigService';
 
 const router = Router();
+
+type ServiceStatus = 'healthy' | 'unhealthy' | 'not_configured' | 'disabled';
+
+interface ServiceHealth {
+  configured: boolean;
+  status: ServiceStatus;
+  detail?: string;
+}
 
 /**
  * GET /api/health
@@ -221,6 +233,72 @@ router.get('/historian', asyncHandler(async (req: Request, res: Response) => {
 
   const statusCode = historianHealth.status === 'healthy' ? 200 : 503;
   res.status(statusCode).json(historianHealth);
+}));
+
+/**
+ * GET /api/health/services
+ * Combined status for every independently-configurable data-source integration
+ * (AVEVA Historian, OPC UA, Tensor Historian) — each is optional, so "not configured"
+ * and "disabled" are distinct, non-error states from "unhealthy". Powers the header
+ * status indicator, which used to reflect AVEVA Historian alone.
+ */
+router.get('/services', asyncHandler(async (_req: Request, res: Response) => {
+  const [historian, opcua, tensor] = await Promise.all([
+    (async (): Promise<ServiceHealth> => {
+      const activeConfig = databaseConfigService.getActiveConfiguration();
+      if (!activeConfig) return { configured: false, status: 'not_configured' };
+      try {
+        const healthy = await getHistorianConnection().validateConnection();
+        return { configured: true, status: healthy ? 'healthy' : 'unhealthy' };
+      } catch (error) {
+        return { configured: true, status: 'unhealthy', detail: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    })(),
+    (async (): Promise<ServiceHealth> => {
+      try {
+        const configs = await opcuaConfigService.listConfigurations();
+        const activeConfig = configs.find((c) => c.isActive);
+        if (!activeConfig) return { configured: false, status: 'not_configured' };
+        return { configured: true, status: opcuaService.hasSession() ? 'healthy' : 'unhealthy' };
+      } catch (error) {
+        return { configured: false, status: 'not_configured', detail: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    })(),
+    (async (): Promise<ServiceHealth> => {
+      const config = teveConfigService.getConfig();
+      if (!config.enabled) return { configured: false, status: 'disabled' };
+      if (!config.baseUrl) return { configured: true, status: 'not_configured' };
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        let ok: boolean;
+        try {
+          const response = await fetch(`${config.baseUrl}/health`, { signal: controller.signal });
+          ok = response.ok;
+        } finally {
+          clearTimeout(timeout);
+        }
+        return { configured: true, status: ok ? 'healthy' : 'unhealthy' };
+      } catch (error) {
+        return { configured: true, status: 'unhealthy', detail: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    })()
+  ]);
+
+  const services = { historian, opcua, tensor };
+  const anyUnhealthy = Object.values(services).some((s) => s.status === 'unhealthy');
+
+  res.json({
+    status: anyUnhealthy ? 'degraded' : 'healthy',
+    timestamp: new Date().toISOString(),
+    services,
+    serverTime: {
+      utc: new Date().toISOString(),
+      local: new Date().toLocaleString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      offset: new Date().getTimezoneOffset()
+    }
+  });
 }));
 
 /**

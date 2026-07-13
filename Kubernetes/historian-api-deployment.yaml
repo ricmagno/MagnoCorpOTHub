@@ -1,0 +1,104 @@
+# API pods: no CLIP model loaded (see historian-worker-deployment.yaml for that).
+# Still needs Chromium (Puppeteer) for the synchronous POST /screenshots capture step.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: historian-api
+  namespace: magnocorp-othub
+  labels:
+    app: historian-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: historian-api
+  template:
+    metadata:
+      labels:
+        app: historian-api
+    spec:
+      imagePullSecrets:
+        - name: ghcr-regcred
+      containers:
+        - name: historian-api
+          image: ghcr.io/ricmagno/magnocorpothub-historian-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3100
+          envFrom:
+            - secretRef:
+                name: historian-env
+          env:
+            - name: HISTORIAN_PORT
+              value: "3100"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1536Mi # headroom for the CLIP text encoder (~250MB), lazily loaded on first /teve/search
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 20
+            periodSeconds: 20
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: historian-api
+  namespace: magnocorp-othub
+  labels:
+    app: historian-api
+spec:
+  selector:
+    app: historian-api
+  ports:
+    - protocol: TCP
+      port: 3100
+      targetPort: 3100
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: historian-api-hpa
+  namespace: magnocorp-othub
+  labels:
+    app: historian-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: historian-api
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

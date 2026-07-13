@@ -1,6 +1,6 @@
 # Deployment Specification
 
-This document defines the authoritative deployment patterns for Historian Reports.
+This document defines the authoritative deployment patterns for MagnoCorpOTHub.
 
 ## 🐳 Docker Deployment
 The application uses a multi-stage Dockerfile optimized for security and multi-architecture builds (AMD64 and ARM64).
@@ -19,7 +19,7 @@ The application uses a multi-stage Dockerfile optimized for security and multi-a
 Deployment manifests are located in the `/Kubernetes` directory.
 
 ### Core Components
-- **Namespace**: `historian-reports` (defined in `historian-reports-namespace.yaml`).
+- **Namespace**: `magnocorp-othub` (defined in `magnocorp-othub-namespace.yaml`).
 - **Workload**: `Deployment` (3 replicas by default) with an associated `HPA` for auto-scaling.
 - **Networking**: 
   - `Service`: Standard ClusterIP.
@@ -34,7 +34,7 @@ The system implements a "Pull-based" continuous deployment strategy via a system
 
 - **Component**: `Kubernetes/autodeploy/autodeploy.sh`.
 - **Logic**: Polls GitHub API for the `latest` release tag and compares it to the running image version.
-- **Trigger**: `historian-autodeploy.timer` runs every 5 minutes.
+- **Trigger**: `magnocorp-othub-autodeploy.timer` runs every 5 minutes.
 - **Authoritative Guide**: [Docs/KUBERNETES_SETUP_INSTRUCTIONS.md](../Docs/KUBERNETES_SETUP_INSTRUCTIONS.md).
 
 ## 🌍 Environment Variables (Containerized)

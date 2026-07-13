@@ -45,7 +45,7 @@ export class AlertEvalService {
      * Stop all subscriptions and clear state.
      */
     async stop(): Promise<void> {
-        await opcuaService.terminateSubscription();
+        await opcuaService.terminateSubscription('alerts');
         this.cachedPvValues.clear();
         this.previousAlarmStates = {};
         this.isRunning = false;
@@ -81,7 +81,7 @@ export class AlertEvalService {
             if (pattern) patternsMap.set(pId, pattern);
         }
 
-        await opcuaService.createSubscription(1000);
+        await opcuaService.createSubscription('alerts', 1000);
         this.isRunning = true;
 
         const getFullNodeId = (tagBase: string, suffix: string): string => {
@@ -108,28 +108,28 @@ export class AlertEvalService {
 
             // Subscribe to the PV so alarm messages include the current process value
             if (hasAnyMonitor) {
-                opcuaService.monitorNode(nodes.PV, 500, (dv: DataValue) => {
+                opcuaService.monitorNode('alerts', nodes.PV, 500, (dv: DataValue) => {
                     this.cachedPvValues.set(nodes.PV, dv.value?.value);
                 });
             }
 
             if (config.monitorHH) {
-                opcuaService.monitorNode(nodes.HH, 500, (dv: DataValue) =>
+                opcuaService.monitorNode('alerts', nodes.HH, 500, (dv: DataValue) =>
                     this.handleAlarm(config, 'High High (HH)', nodes.HH, nodes.PV, dv.value?.value)
                 );
             }
             if (config.monitorH) {
-                opcuaService.monitorNode(nodes.H, 500, (dv: DataValue) =>
+                opcuaService.monitorNode('alerts', nodes.H, 500, (dv: DataValue) =>
                     this.handleAlarm(config, 'High (H)', nodes.H, nodes.PV, dv.value?.value)
                 );
             }
             if (config.monitorL) {
-                opcuaService.monitorNode(nodes.L, 500, (dv: DataValue) =>
+                opcuaService.monitorNode('alerts', nodes.L, 500, (dv: DataValue) =>
                     this.handleAlarm(config, 'Low (L)', nodes.L, nodes.PV, dv.value?.value)
                 );
             }
             if (config.monitorLL) {
-                opcuaService.monitorNode(nodes.LL, 500, (dv: DataValue) =>
+                opcuaService.monitorNode('alerts', nodes.LL, 500, (dv: DataValue) =>
                     this.handleAlarm(config, 'Low Low (LL)', nodes.LL, nodes.PV, dv.value?.value)
                 );
             }

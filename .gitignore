@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# CLIP model cache (baked into worker image at build time — see Dockerfile.historian)
+.model-cache/
+
 # Environment variables
 .env
 .env.local
@@ -118,3 +121,25 @@ build-secrets
 
 # Local tool caches
 .crush/
+
+# iCloud-excluded real dependency dirs (node_modules is a symlink to these)
+node_modules.nosync/
+old_node_modules_evicted/
+
+# LLMs
+.ai
+.GEMINI.md.
+GEMINI.md
+.QWEN.md
+QWEN.md
+.CLUDE.md
+.kiro.
+.claude
+.crush
+.vscode
+.newFeature
+.db
+AGENTS.md
+CLAUDE.md
+CONTRIBUTING.md
+

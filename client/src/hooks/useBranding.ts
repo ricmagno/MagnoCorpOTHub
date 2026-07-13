@@ -13,16 +13,29 @@ export interface BrandingSettings {
 }
 
 export const BRANDING_DEFAULTS: BrandingSettings = {
-  companyName: '',
-  appName: 'MagnoCorpOTHub',
+  companyName: 'MagnoCorp',
+  appName: 'OT Hub',
   siteName: '',
   primaryColor: '#2563EB',
   accentColor: '#7C3AED',
-  website: '',
+  website: 'https://www.magnocorp.com',
   reportFooter: '',
   emailSenderName: 'MagnoCorpOTHub',
   hasLogo: false
 };
+
+// The platform's own base identity. When an admin customizes Company Name
+// and/or Platform Name away from these, the UI shows a small
+// "Powered by MagnoCorp OT Hub" attribution alongside the custom name.
+export const BASE_COMPANY_NAME = 'MagnoCorp';
+export const BASE_APP_NAME = 'OT Hub';
+
+export function isCustomBranded(settings: Pick<BrandingSettings, 'companyName' | 'appName'>): boolean {
+  return (
+    (!!settings.companyName && settings.companyName !== BASE_COMPANY_NAME) ||
+    (!!settings.appName && settings.appName !== BASE_APP_NAME)
+  );
+}
 
 export interface BrandingContextValue {
   branding: BrandingSettings;
