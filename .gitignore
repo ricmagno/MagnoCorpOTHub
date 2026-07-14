@@ -127,18 +127,18 @@ old_node_modules_evicted/
 
 # LLMs
 .ai
-.GEMINI.md.
 GEMINI.md
-.QWEN.md
 QWEN.md
-.CLUDE.md
-.kiro.
+.kiro/
 .claude
 .crush
 .vscode
-.newFeature
-.db
 AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md
+
+# Personal scratch/dev artifacts (not for github)
+newFeatures/
+scratch/
+.run/
 
