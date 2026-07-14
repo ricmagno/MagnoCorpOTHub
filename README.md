@@ -7,7 +7,6 @@ MagnoCorpOTHub: the unified OT reporting and analytics platform for industrial a
 ### 🤖 AI-First Development
 This repository is optimized for AI coding agents. If you are using an AI assistant, please refer to:
 - [AGENTS.md](./AGENTS.md): Coding conventions and architectural guardrails.
-- [MEMORY.md](./MEMORY.md): Permanent project knowledge and learned technical behaviors.
 - [CONTRIBUTING.md](./CONTRIBUTING.md): Workflow guidelines for the team.
 - [spec/](./spec/): Authoritative technical specifications (API, Database, Use Cases).
 
