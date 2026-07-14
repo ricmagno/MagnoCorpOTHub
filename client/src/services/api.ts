@@ -14,7 +14,9 @@ import {
 import {
   OpcuaConfig,
   OpcuaConfiguration,
-  OpcuaTagInfo
+  OpcuaConnectionHealth,
+  OpcuaTagInfo,
+  LegacyTagMigrationResult
 } from '../types/opcuaConfig';
 import {
   DatabaseConfig,
@@ -987,14 +989,39 @@ export const apiService = {
     });
   },
 
-  async browseOpcuaTags(nodeId?: string): Promise<ApiResponse<OpcuaTagInfo[]>> {
-    const params = nodeId ? `?nodeId=${encodeURIComponent(nodeId)}` : '';
-    return fetchWithRetry(`/opcua/browse${params}`);
+  async browseOpcuaTags(nodeId?: string, connectionId?: string): Promise<ApiResponse<OpcuaTagInfo[]>> {
+    const params = new URLSearchParams();
+    if (nodeId) params.append('nodeId', nodeId);
+    if (connectionId) params.append('connectionId', connectionId);
+    const query = params.toString();
+    return fetchWithRetry(`/opcua/browse${query ? `?${query}` : ''}`);
   },
 
-  async activateOpcuaConfig(configId: string): Promise<ApiResponse<void>> {
-    return fetchWithRetry(`/opcua/activate/${encodeURIComponent(configId)}`, {
+  async setOpcuaConfigEnabled(configId: string, enabled: boolean): Promise<ApiResponse<void>> {
+    return fetchWithRetry(
+      `/opcua/configs/${encodeURIComponent(configId)}/${enabled ? 'enable' : 'disable'}`,
+      { method: 'POST' }
+    );
+  },
+
+  async setOpcuaLegacyDefault(configId: string): Promise<ApiResponse<void>> {
+    return fetchWithRetry(`/opcua/configs/${encodeURIComponent(configId)}/legacy-default`, {
       method: 'POST',
+    });
+  },
+
+  async clearOpcuaLegacyDefault(): Promise<ApiResponse<void>> {
+    return fetchWithRetry('/opcua/legacy-default', { method: 'DELETE' });
+  },
+
+  async getOpcuaConnections(): Promise<ApiResponse<OpcuaConnectionHealth[]>> {
+    return fetchWithRetry('/opcua/connections');
+  },
+
+  async migrateOpcuaLegacyTags(connectionId: string, dryRun = false): Promise<ApiResponse<LegacyTagMigrationResult>> {
+    return fetchApi('/opcua/migrate-legacy-tags', {
+      method: 'POST',
+      body: JSON.stringify({ connectionId, dryRun }),
     });
   },
 

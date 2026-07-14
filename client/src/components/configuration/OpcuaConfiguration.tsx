@@ -109,6 +109,7 @@ export const OpcuaConfiguration: React.FC = () => {
         setEditingConfigId(config.id);
         setNewConfig({
             name: config.name,
+            alias: config.alias,
             endpointUrl: config.endpointUrl,
             securityMode: config.securityMode,
             securityPolicy: config.securityPolicy,
@@ -132,16 +133,68 @@ export const OpcuaConfiguration: React.FC = () => {
         });
     };
 
-    const handleActivateConfig = async (id: string) => {
+    const handleToggleEnabled = async (config: OpcuaConfigType) => {
         try {
-            const response = await apiService.activateOpcuaConfig(id);
+            const response = await apiService.setOpcuaConfigEnabled(config.id, !config.enabled);
             if (response.success) {
-                success('Configuration Activated');
+                success(config.enabled ? 'Connection Disabled' : 'Connection Enabled');
                 // Add a small delay to ensure backend state has settled
                 setTimeout(() => loadConfigs(), 300);
             }
         } catch (err: any) {
-            toastError('Activation Failed', err.message);
+            toastError(config.enabled ? 'Disable Failed' : 'Enable Failed', err.message);
+        }
+    };
+
+    const handleSetLegacyDefault = async (config: OpcuaConfigType) => {
+        try {
+            const response = config.isLegacyDefault
+                ? await apiService.clearOpcuaLegacyDefault()
+                : await apiService.setOpcuaLegacyDefault(config.id);
+            if (response.success) {
+                success(config.isLegacyDefault ? 'Legacy Default Cleared' : 'Legacy Default Set',
+                    config.isLegacyDefault
+                        ? 'Unqualified opcua: tags will no longer resolve'
+                        : `Unqualified opcua: tags now resolve to "${config.name}"`);
+                setTimeout(() => loadConfigs(), 300);
+            }
+        } catch (err: any) {
+            toastError('Update Failed', err.message);
+        }
+    };
+
+    const handleMigrateLegacyTags = async (config: OpcuaConfigType) => {
+        try {
+            // Dry-run first so the confirm dialog shows exactly what would change.
+            const preview = await apiService.migrateOpcuaLegacyTags(config.id, true);
+            if (!preview.success || !preview.data) {
+                toastError('Migration Preview Failed');
+                return;
+            }
+            const p = preview.data;
+            const total = p.alertConfigs + p.teveHistorizeTags + p.reports + p.reportVersions + p.dashboards + p.dashboardVersions;
+            if (total === 0) {
+                success('Nothing to Migrate', 'No stored unqualified opcua: tags were found.');
+                return;
+            }
+            const sampleLines = (p.samples || []).slice(0, 5)
+                .map(s => `  [${s.store}] ${s.from} → ${s.to}`)
+                .join('\n');
+            if (!window.confirm(
+                `Rewrite stored unqualified opcua: tags to "opcua:${config.alias}:…" (binds them permanently to "${config.name}")?\n\n` +
+                `Alerts: ${p.alertConfigs}, TEVE tags: ${p.teveHistorizeTags}, Reports: ${p.reports} (+${p.reportVersions} versions), Dashboards: ${p.dashboards} (+${p.dashboardVersions} versions)\n\n` +
+                (sampleLines ? `Examples:\n${sampleLines}\n\n` : '') +
+                `This cannot be undone in bulk.`
+            )) return;
+
+            const response = await apiService.migrateOpcuaLegacyTags(config.id);
+            if (response.success && response.data) {
+                const r = response.data;
+                success('Legacy Tags Migrated',
+                    `Alerts: ${r.alertConfigs}, TEVE tags: ${r.teveHistorizeTags}, Reports: ${r.reports}, Dashboards: ${r.dashboards}`);
+            }
+        } catch (err: any) {
+            toastError('Migration Failed', err.message);
         }
     };
 
@@ -180,7 +233,7 @@ export const OpcuaConfiguration: React.FC = () => {
                 <CardContent>
                     <form onSubmit={handleSaveConfig} className="space-y-4">
                         {/* ... (keep existing form fields) ... */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Configuration Name</label>
                                 <Input
@@ -188,6 +241,16 @@ export const OpcuaConfiguration: React.FC = () => {
                                     onChange={e => setNewConfig({ ...newConfig, name: e.target.value })}
                                     placeholder="e.g. Production PLC"
                                     required
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Alias <span className="text-gray-400 font-normal">(used in tags)</span></label>
+                                <Input
+                                    value={newConfig.alias || ''}
+                                    onChange={e => setNewConfig({ ...newConfig, alias: e.target.value })}
+                                    placeholder="auto-generated from name"
+                                    pattern="[a-z0-9-]{2,32}"
+                                    title="2-32 lowercase letters, digits, or hyphens"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -310,7 +373,9 @@ export const OpcuaConfiguration: React.FC = () => {
                         {configs.map(config => (
                             <Card key={config.id} className={cn(
                                 "border-l-4 transition-shadow hover:shadow-md",
-                                config.isActive ? "border-l-green-500" : "border-l-gray-300",
+                                config.enabled
+                                    ? (config.liveStatus === 'connected' ? "border-l-green-500" : "border-l-amber-400")
+                                    : "border-l-gray-300",
                                 editingConfigId === config.id && "ring-2 ring-primary-500"
                             )}>
                                 <CardContent className="p-4">
@@ -318,9 +383,22 @@ export const OpcuaConfiguration: React.FC = () => {
                                         <div className="space-y-1">
                                             <div className="flex items-center space-x-2">
                                                 <h4 className="font-bold text-gray-900">{config.name}</h4>
-                                                {config.isActive && (
-                                                    <span className="flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">
-                                                        <Activity className="h-2.5 w-2.5 mr-1" /> ACTIVE
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-600" title="Alias — use in tags as opcua:<alias>:<nodeId>">
+                                                    {config.alias}
+                                                </span>
+                                                {config.enabled && (
+                                                    <span className={cn(
+                                                        "flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold",
+                                                        config.liveStatus === 'connected' && "bg-green-100 text-green-800",
+                                                        (config.liveStatus === 'connecting' || config.liveStatus === 'reconnecting') && "bg-amber-100 text-amber-800",
+                                                        (config.liveStatus === 'error' || config.liveStatus === 'disconnected') && "bg-red-100 text-red-800"
+                                                    )} title={config.lastError || undefined}>
+                                                        <Activity className="h-2.5 w-2.5 mr-1" /> {config.liveStatus.toUpperCase()}
+                                                    </span>
+                                                )}
+                                                {config.isLegacyDefault && (
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800" title="Unqualified legacy opcua:<nodeId> tags resolve to this connection">
+                                                        LEGACY DEFAULT
                                                     </span>
                                                 )}
                                             </div>
@@ -356,16 +434,33 @@ export const OpcuaConfiguration: React.FC = () => {
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            {!config.isActive && (
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={() => handleActivateConfig(config.id)}
-                                                    title="Activate Server"
-                                                >
-                                                    <CheckCircle2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
+                                            <Button
+                                                variant={config.enabled ? "outline" : "secondary"}
+                                                size="sm"
+                                                onClick={() => handleToggleEnabled(config)}
+                                                title={config.enabled ? "Disable Connection" : "Enable Connection"}
+                                            >
+                                                {config.enabled ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleSetLegacyDefault(config)}
+                                                className={cn(config.isLegacyDefault && "text-blue-600")}
+                                                title={config.isLegacyDefault
+                                                    ? "Clear legacy default (unqualified opcua: tags stop resolving)"
+                                                    : "Set as legacy default (unqualified opcua: tags resolve here)"}
+                                            >
+                                                <Globe className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleMigrateLegacyTags(config)}
+                                                title="Migrate legacy tags: rewrite stored unqualified opcua: tags to this connection's qualified form"
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -378,7 +473,7 @@ export const OpcuaConfiguration: React.FC = () => {
                                         </div>
                                     </div>
                                     {/* Error reporting ... */}
-                                    {config.status === 'failed' && config.lastError && (
+                                    {(config.liveStatus === 'error' || config.status === 'failed') && config.lastError && (
                                         <div className="mt-3 p-2 bg-red-50 border border-red-100 rounded text-xs text-red-700 flex items-start">
                                             <AlertTriangle className="h-3.5 w-3.5 mr-2 mt-0.5 flex-shrink-0" />
                                             <span>{config.lastError}</span>

@@ -41,6 +41,8 @@ export interface AlertConfig {
     name: string;
     description?: string;
     tagBase: string; // The base tag name, e.g. NV11_FT001
+    /** OPC UA connection this alert's nodes live on; null/undefined = legacy default (if enabled). */
+    connectionId?: string | null;
     monitorHH: boolean;
     monitorH: boolean;
     monitorL: boolean;
@@ -77,6 +79,7 @@ export interface SaveAlertConfigRequest {
     name: string;
     description?: string;
     tagBase: string;
+    connectionId?: string | null;
     monitorHH: boolean;
     monitorH: boolean;
     monitorL: boolean;

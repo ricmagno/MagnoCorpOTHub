@@ -6,11 +6,13 @@ import { alertsApi, AlertConfig, AlertList, AlertPattern, SaveAlertConfigRequest
 import { useToast } from '../../hooks/useToast';
 import { Input } from '../ui/Input';
 import { TagSelector } from '../forms/TagSelector';
+import { apiService } from '../../services/api';
 
 export const AlertConfigsView: React.FC = () => {
     const [configs, setConfigs] = useState<AlertConfig[]>([]);
     const [lists, setLists] = useState<AlertList[]>([]);
     const [patterns, setPatterns] = useState<AlertPattern[]>([]);
+    const [opcuaConnections, setOpcuaConnections] = useState<{ id: string; alias: string; name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [currentConfig, setCurrentConfig] = useState<Partial<AlertConfig> | null>(null);
@@ -23,14 +25,18 @@ export const AlertConfigsView: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [configsData, listsData, patternsData] = await Promise.all([
+            const [configsData, listsData, patternsData, opcuaResponse] = await Promise.all([
                 alertsApi.getAlertConfigs(),
                 alertsApi.getAlertLists(),
-                alertsApi.getAlertPatterns()
+                alertsApi.getAlertPatterns(),
+                apiService.getOpcuaConfigs().catch(() => null)
             ]);
             setConfigs(configsData);
             setLists(listsData);
             setPatterns(patternsData);
+            if (opcuaResponse?.success && opcuaResponse.data) {
+                setOpcuaConnections(opcuaResponse.data.map(c => ({ id: c.id, alias: c.alias, name: c.name })));
+            }
         } catch (err: any) {
             error('Failed to load alert configurations', err.message);
         } finally {
@@ -58,6 +64,7 @@ export const AlertConfigsView: React.FC = () => {
                 name: config.name,
                 description: config.description,
                 tagBase: config.tagBase,
+                connectionId: config.connectionId ?? null,
                 alertListId: config.alertListId,
                 patternId: config.patternId,
                 monitorHH: config.monitorHH,
@@ -112,6 +119,7 @@ export const AlertConfigsView: React.FC = () => {
                 name: currentConfig.name.trim(),
                 description: currentConfig.description?.trim(),
                 tagBase: currentConfig.tagBase.trim(),
+                connectionId: currentConfig.connectionId ?? null,
                 alertListId: currentConfig.alertListId,
                 patternId: currentConfig.patternId || '',
                 monitorHH: currentConfig.monitorHH ?? true,
@@ -185,12 +193,32 @@ export const AlertConfigsView: React.FC = () => {
                                     selectedTags={currentConfig.tagBase ? [currentConfig.tagBase] : []}
                                     onChange={(tags) => {
                                         const tag = tags.length > 0 ? tags[0] : '';
-                                        setCurrentConfig({ ...currentConfig, tagBase: tag.replace(/^opcua:/, '') });
+                                        // Qualified form is opcua:<alias>:<nodeId> — split the alias
+                                        // off into connectionId, keeping tagBase a bare node base.
+                                        const rest = tag.replace(/^opcua:/, '');
+                                        const sep = rest.indexOf(':');
+                                        const maybeAlias = sep > 0 ? rest.slice(0, sep) : '';
+                                        const connection = opcuaConnections.find(c => c.alias === maybeAlias || c.id === maybeAlias);
+                                        if (connection) {
+                                            setCurrentConfig({ ...currentConfig, tagBase: rest.slice(sep + 1), connectionId: connection.id });
+                                        } else {
+                                            setCurrentConfig({ ...currentConfig, tagBase: rest });
+                                        }
                                     }}
                                     maxTags={1}
                                     widgetType="value-block"
                                     className="shadow-sm border border-gray-200"
                                 />
+                                {currentConfig.connectionId && (
+                                    <p className="text-xs text-primary-600 mt-1">
+                                        Connection: {opcuaConnections.find(c => c.id === currentConfig.connectionId)?.name || currentConfig.connectionId}
+                                    </p>
+                                )}
+                                {!currentConfig.connectionId && currentConfig.tagBase && (
+                                    <p className="text-xs text-amber-600 mt-1">
+                                        No OPC UA connection bound — this alert is only evaluated if a legacy-default connection is designated.
+                                    </p>
+                                )}
                                 <p className="text-xs text-gray-500 mt-2">Select the base tag from Historian or OPC UA Discovery. The system will append pattern suffixes to monitor alarms.</p>
                             </div>
                             <div>

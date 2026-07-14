@@ -1,43 +1,57 @@
-import { DataValue } from 'node-opcua';
 import { logger } from '../utils/logger';
 import { alertManagementService } from './alertManagementService';
 import { smsService } from './smsService';
-import { opcuaService } from './opcuaService';
+import { opcuaManager } from './opcua/opcuaConnectionManager';
+import { OpcuaDataValue } from '../types/opcua';
+import { AlertConfig } from '../types/alerts';
+
+const SUBSCRIPTION_KEY = 'alerts';
 
 /**
  * Service to evaluate alerts via OPC UA subscriptions (push-based).
- * Replaces the previous setInterval polling approach.
+ *
+ * Multi-connection aware: alert configs are grouped by their OPC UA
+ * connection and each group subscribes on its own connection, so one PLC
+ * reconnecting rebuilds only that connection's monitors — never the whole
+ * fleet's. Configs without a connectionId are evaluated only when an admin
+ * has designated a legacy-default connection (the fallback is off by default).
  */
 export class AlertEvalService {
     private previousAlarmStates: Record<string, boolean> = {};
     private cachedPvValues: Map<string, any> = new Map();
-    private isRunning = false;
+    private runningConnections = new Set<string>();
+    private started = false;
 
     constructor() { }
 
     /**
      * Start subscription-based alert evaluation.
-     * Registers connect/reconnect hooks on opcuaService so subscriptions are
-     * re-established automatically when the OPC UA session comes up or recovers.
+     * Registers connect/reconnect hooks on the connection manager so
+     * subscriptions are (re-)established per connection as sessions come up.
      */
     async start(): Promise<void> {
-        opcuaService.onConnect(() => {
-            this.setupSubscriptions().catch(err =>
-                logger.error('AlertEvalService: failed to set up subscriptions after connect:', err)
-            );
-        });
+        if (!this.started) {
+            this.started = true;
+            opcuaManager.onAnyConnect((connectionId) => {
+                this.setupSubscriptionsForConnection(connectionId).catch(err =>
+                    logger.error(`AlertEvalService: failed to set up subscriptions after connect (${connectionId}):`, err)
+                );
+            });
+            opcuaManager.onAnyReconnect((connectionId) => {
+                this.refreshConnection(connectionId).catch(err =>
+                    logger.error(`AlertEvalService: failed to refresh subscriptions after reconnect (${connectionId}):`, err)
+                );
+            });
+        }
 
-        opcuaService.onReconnect(() => {
-            this.refresh().catch(err =>
-                logger.error('AlertEvalService: failed to refresh subscriptions after reconnect:', err)
-            );
-        });
-
-        // If a session is already active, set up subscriptions immediately.
-        if (opcuaService.hasSession()) {
-            await this.setupSubscriptions();
-        } else {
-            logger.info('AlertEvalService: no OPC UA session yet — subscriptions will activate on first connect');
+        // Set up immediately for any connections that already have sessions.
+        const live = opcuaManager.listProviders().filter(p => p.hasSession());
+        if (live.length === 0) {
+            logger.info('AlertEvalService: no OPC UA sessions yet — subscriptions will activate on first connect');
+            return;
+        }
+        for (const provider of live) {
+            await this.setupSubscriptionsForConnection(provider.connectionId);
         }
     }
 
@@ -45,31 +59,73 @@ export class AlertEvalService {
      * Stop all subscriptions and clear state.
      */
     async stop(): Promise<void> {
-        await opcuaService.terminateSubscription('alerts');
+        await opcuaManager.terminateSubscriptionAll(SUBSCRIPTION_KEY);
         this.cachedPvValues.clear();
         this.previousAlarmStates = {};
-        this.isRunning = false;
+        this.runningConnections.clear();
         logger.info('AlertEvalService stopped');
     }
 
     /**
-     * Rebuild subscriptions (called after a config change or OPC UA reconnect).
+     * Rebuild subscriptions on every connection (called after alert config changes).
      */
     async refresh(): Promise<void> {
         logger.info('AlertEvalService: refreshing subscriptions');
         await this.stop();
-        await this.setupSubscriptions();
+        for (const provider of opcuaManager.listProviders()) {
+            if (provider.hasSession()) {
+                await this.setupSubscriptionsForConnection(provider.connectionId);
+            }
+        }
     }
 
-    private async setupSubscriptions(): Promise<void> {
-        if (this.isRunning) {
-            logger.warn('AlertEvalService: setupSubscriptions called while already running — skipping');
+    /**
+     * Rebuild only one connection's subscriptions (e.g. after that PLC reconnects).
+     */
+    async refreshConnection(connectionId: string): Promise<void> {
+        logger.info(`AlertEvalService: refreshing subscriptions for connection ${connectionId}`);
+        const provider = opcuaManager.findProvider(connectionId);
+        if (!provider) return;
+        try {
+            await provider.terminateSubscription(SUBSCRIPTION_KEY);
+        } catch (err) {
+            logger.warn(`AlertEvalService: error terminating '${SUBSCRIPTION_KEY}' on ${connectionId}:`, err);
+        }
+        this.runningConnections.delete(connectionId);
+        await this.setupSubscriptionsForConnection(connectionId);
+    }
+
+    /** Alert configs bound to this connection (including legacy-default routing). */
+    private async configsForConnection(connectionId: string): Promise<AlertConfig[]> {
+        const configs = await alertManagementService.getActiveAlertConfigs();
+        const legacyId = opcuaManager.getLegacyDefaultConnectionId();
+        const skipped: string[] = [];
+        const matched = configs.filter(config => {
+            if (config.connectionId) return config.connectionId === connectionId;
+            if (legacyId) return legacyId === connectionId;
+            skipped.push(config.name);
+            return false;
+        });
+        if (skipped.length > 0) {
+            logger.warn(
+                `AlertEvalService: ${skipped.length} alert config(s) have no OPC UA connection and no legacy-default connection is designated — skipped: ${skipped.join(', ')}`
+            );
+        }
+        return matched;
+    }
+
+    private async setupSubscriptionsForConnection(connectionId: string): Promise<void> {
+        if (this.runningConnections.has(connectionId)) {
+            logger.warn(`AlertEvalService: subscriptions already running for connection ${connectionId} — skipping`);
             return;
         }
 
-        const configs = await alertManagementService.getActiveAlertConfigs();
+        const provider = opcuaManager.findProvider(connectionId);
+        if (!provider || !provider.hasSession()) return;
+
+        const configs = await this.configsForConnection(connectionId);
         if (configs.length === 0) {
-            logger.info('AlertEvalService: no active alert configs — subscriptions not started');
+            logger.info(`AlertEvalService: no active alert configs for connection '${provider.name}'`);
             return;
         }
 
@@ -81,8 +137,8 @@ export class AlertEvalService {
             if (pattern) patternsMap.set(pId, pattern);
         }
 
-        await opcuaService.createSubscription('alerts', 1000);
-        this.isRunning = true;
+        await provider.createSubscription(SUBSCRIPTION_KEY, 1000);
+        this.runningConnections.add(connectionId);
 
         const getFullNodeId = (tagBase: string, suffix: string): string => {
             const prefix = suffix.startsWith('.') ? '' : '.';
@@ -108,34 +164,34 @@ export class AlertEvalService {
 
             // Subscribe to the PV so alarm messages include the current process value
             if (hasAnyMonitor) {
-                opcuaService.monitorNode('alerts', nodes.PV, 500, (dv: DataValue) => {
-                    this.cachedPvValues.set(nodes.PV, dv.value?.value);
+                await provider.monitorNode(SUBSCRIPTION_KEY, nodes.PV, 500, (dv: OpcuaDataValue) => {
+                    this.cachedPvValues.set(nodes.PV, dv.value);
                 });
             }
 
             if (config.monitorHH) {
-                opcuaService.monitorNode('alerts', nodes.HH, 500, (dv: DataValue) =>
-                    this.handleAlarm(config, 'High High (HH)', nodes.HH, nodes.PV, dv.value?.value)
+                await provider.monitorNode(SUBSCRIPTION_KEY, nodes.HH, 500, (dv: OpcuaDataValue) =>
+                    this.handleAlarm(config, 'High High (HH)', nodes.HH, nodes.PV, dv.value)
                 );
             }
             if (config.monitorH) {
-                opcuaService.monitorNode('alerts', nodes.H, 500, (dv: DataValue) =>
-                    this.handleAlarm(config, 'High (H)', nodes.H, nodes.PV, dv.value?.value)
+                await provider.monitorNode(SUBSCRIPTION_KEY, nodes.H, 500, (dv: OpcuaDataValue) =>
+                    this.handleAlarm(config, 'High (H)', nodes.H, nodes.PV, dv.value)
                 );
             }
             if (config.monitorL) {
-                opcuaService.monitorNode('alerts', nodes.L, 500, (dv: DataValue) =>
-                    this.handleAlarm(config, 'Low (L)', nodes.L, nodes.PV, dv.value?.value)
+                await provider.monitorNode(SUBSCRIPTION_KEY, nodes.L, 500, (dv: OpcuaDataValue) =>
+                    this.handleAlarm(config, 'Low (L)', nodes.L, nodes.PV, dv.value)
                 );
             }
             if (config.monitorLL) {
-                opcuaService.monitorNode('alerts', nodes.LL, 500, (dv: DataValue) =>
-                    this.handleAlarm(config, 'Low Low (LL)', nodes.LL, nodes.PV, dv.value?.value)
+                await provider.monitorNode(SUBSCRIPTION_KEY, nodes.LL, 500, (dv: OpcuaDataValue) =>
+                    this.handleAlarm(config, 'Low Low (LL)', nodes.LL, nodes.PV, dv.value)
                 );
             }
         }
 
-        logger.info(`AlertEvalService: subscriptions active for ${configs.length} alert config(s)`);
+        logger.info(`AlertEvalService: subscriptions active for ${configs.length} alert config(s) on '${provider.name}'`);
     }
 
     private handleAlarm(config: any, alarmTypeStr: string, alarmNodeId: string, pvNodeId: string, alarmValue: any): void {

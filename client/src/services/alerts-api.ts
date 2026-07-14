@@ -21,6 +21,8 @@ export interface AlertConfig {
     name: string;
     description?: string;
     tagBase: string;
+    /** OPC UA connection the alert nodes live on; null = legacy default (if designated). */
+    connectionId?: string | null;
     monitorHH: boolean;
     monitorH: boolean;
     monitorL: boolean;
@@ -61,6 +63,7 @@ export interface SaveAlertConfigRequest {
     name: string;
     description?: string;
     tagBase: string;
+    connectionId?: string | null;
     monitorHH: boolean;
     monitorH: boolean;
     monitorL: boolean;

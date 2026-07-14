@@ -12,6 +12,14 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT secret must be at least 32 characters'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
 
+  // OPC UA multi-connection limits
+  OPCUA_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(500).default(64),
+  OPCUA_CONNECT_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
+  // Circuit breaker: after this many connect→drop cycles shorter than 60s,
+  // quarantine the connection for OPCUA_QUARANTINE_MS before retrying.
+  OPCUA_QUARANTINE_AFTER_CYCLES: z.coerce.number().int().min(2).max(100).default(5),
+  OPCUA_QUARANTINE_MS: z.coerce.number().int().min(60_000).max(3_600_000).default(900_000),
+
   // Email Configuration (optional — configurable via the Alerts UI)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),

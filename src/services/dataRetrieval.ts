@@ -12,7 +12,8 @@ import { createHash } from 'crypto';
 import { Readable, Transform } from 'stream';
 import { pipeline } from 'stream/promises';
 import { TimeSeriesData, TagInfo, TimeRange, DataFilter, QueryResult, HistorianQueryOptions, RetrievalMode, QualityCode, StatisticsResult, FilterCondition } from '@/types/historian';
-import { opcuaService } from './opcuaService';
+import { opcuaManager } from './opcua/opcuaConnectionManager';
+import { NO_CONNECTION_MESSAGE } from './opcua/tagResolver';
 import { teveConfigService } from './teveConfigService';
 
 function historicalTTL(endTime: Date): number {
@@ -676,8 +677,22 @@ export class DataRetrievalService {
     }
     if (tagName.startsWith('opcua:')) {
       try {
-        const nodeId = tagName.replace('opcua:', '');
-        const data = await opcuaService.readVariable(nodeId);
+        const resolved = opcuaManager.tryResolveTag(tagName);
+        if (!resolved) {
+          dbLogger.warn(NO_CONNECTION_MESSAGE, { tagName });
+          return {
+            name: tagName,
+            description: NO_CONNECTION_MESSAGE,
+            units: '',
+            dataType: 'analog',
+            lastUpdate: new Date(),
+            minValue: 0,
+            maxValue: 100,
+            dataSource: 'opcua'
+          };
+        }
+        const { connectionId, nodeId } = resolved;
+        const data = await opcuaManager.getProvider(connectionId).readVariable(nodeId);
         let description = data.description;
         let units = '';
 
@@ -874,8 +889,25 @@ export class DataRetrievalService {
     options?: HistorianQueryOptions
   ): Promise<TimeSeriesData[]> {
     try {
-      const nodeId = tagName.replace('opcua:', '');
-      const currentData = await opcuaService.readVariable(nodeId);
+      const { getQualityLabel: qLabel, getQualityMeaning: qMeaning } = require('@/utils/qualityUtils');
+      const resolved = opcuaManager.tryResolveTag(tagName);
+      if (!resolved) {
+        // Legacy fallback is off (by default): surface an explicit Bad point
+        // rather than silently binding the tag to some connection.
+        dbLogger.warn(NO_CONNECTION_MESSAGE, { tagName });
+        return [{
+          timestamp: new Date(),
+          value: null as any,
+          quality: QualityCode.Bad,
+          qualityLabel: qLabel(QualityCode.Bad),
+          qualityMeaning: qMeaning(QualityCode.Bad),
+          tagName,
+          description: NO_CONNECTION_MESSAGE,
+          dataSource: 'opcua'
+        }];
+      }
+      const { connectionId, nodeId } = resolved;
+      const currentData = await opcuaManager.getProvider(connectionId).readVariable(nodeId);
 
       const timestamp = new Date();
       const rawValue = currentData.value;

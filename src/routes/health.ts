@@ -12,7 +12,8 @@ import { asyncHandler } from '@/middleware/errorHandler';
 import { env } from '@/config/environment';
 import { databaseConfigService } from '@/services/databaseConfigService';
 import { opcuaConfigService } from '@/services/opcuaConfigService';
-import { opcuaService } from '@/services/opcuaService';
+import { opcuaManager } from '@/services/opcua/opcuaConnectionManager';
+import { countUnresolvedLegacyTags } from '@/services/opcua/legacyTagStats';
 import { teveConfigService } from '@/services/teveConfigService';
 
 const router = Router();
@@ -23,6 +24,20 @@ interface ServiceHealth {
   configured: boolean;
   status: ServiceStatus;
   detail?: string;
+  /** Per-connection detail for multi-connection services (OPC UA). */
+  connections?: Array<{
+    id: string;
+    name: string;
+    alias: string;
+    status: string;
+    lastError?: string | undefined;
+    isLegacyDefault: boolean;
+    subscriptionCount?: number;
+    monitoredItemCount?: number;
+    lastDataTimestamp?: string | undefined;
+  }>;
+  /** Stored tag rows with no connection binding while the legacy fallback is off. */
+  unresolvedLegacyTagCount?: number;
 }
 
 /**
@@ -257,9 +272,25 @@ router.get('/services', asyncHandler(async (_req: Request, res: Response) => {
     (async (): Promise<ServiceHealth> => {
       try {
         const configs = await opcuaConfigService.listConfigurations();
-        const activeConfig = configs.find((c) => c.isActive);
-        if (!activeConfig) return { configured: false, status: 'not_configured' };
-        return { configured: true, status: opcuaService.hasSession() ? 'healthy' : 'unhealthy' };
+        const enabled = configs.filter((c) => c.enabled);
+        if (enabled.length === 0) return { configured: false, status: 'not_configured' };
+        const connections = opcuaManager.health();
+        // Healthy only when every enabled connection has a live session.
+        const allConnected =
+          connections.length > 0 &&
+          enabled.every((c) => opcuaManager.findProvider(c.id)?.hasSession());
+        const health: ServiceHealth = {
+          configured: true,
+          status: allConnected ? 'healthy' : 'unhealthy',
+          connections,
+        };
+        // Rows that silently do nothing until an admin acts — only meaningful
+        // while the legacy fallback is off.
+        if (opcuaManager.getLegacyDefaultConnectionId() === null) {
+          const count = countUnresolvedLegacyTags();
+          if (count > 0) health.unresolvedLegacyTagCount = count;
+        }
+        return health;
       } catch (error) {
         return { configured: false, status: 'not_configured', detail: error instanceof Error ? error.message : 'Unknown error' };
       }
@@ -288,10 +319,13 @@ router.get('/services', asyncHandler(async (_req: Request, res: Response) => {
   const services = { historian, opcua, tensor };
   const anyUnhealthy = Object.values(services).some((s) => s.status === 'unhealthy');
 
+  const mem = process.memoryUsage();
   res.json({
     status: anyUnhealthy ? 'degraded' : 'healthy',
     timestamp: new Date().toISOString(),
     services,
+    // Watch this at 50+ OPC UA connections — see spec/deployment.md sizing.
+    memory: { rssMb: Math.round(mem.rss / 1048576), heapUsedMb: Math.round(mem.heapUsed / 1048576) },
     serverTime: {
       utc: new Date().toISOString(),
       local: new Date().toLocaleString(),

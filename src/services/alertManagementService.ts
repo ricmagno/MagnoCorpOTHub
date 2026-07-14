@@ -94,6 +94,19 @@ export class AlertManagementService {
                 }
             }
 
+            // Add connection_id column if missing (multi-connection OPC UA).
+            // NULL = unqualified: only evaluated when an admin has designated
+            // a legacy-default connection.
+            const hasConnectionId = columns.some(col => col.name === 'connection_id');
+            if (!hasConnectionId) {
+                logger.info('Migrating alert_configs: Adding connection_id column');
+                try {
+                    this.db.exec('ALTER TABLE alert_configs ADD COLUMN connection_id TEXT DEFAULT NULL');
+                } catch (err) {
+                    logger.error('Error adding connection_id to alert_configs:', err);
+                }
+            }
+
             // Seed default Analog Alarms pattern if tables are empty
             const row = this.db.prepare('SELECT COUNT(*) as count FROM alert_patterns').get() as any;
             if (row && row.count === 0) {
@@ -181,11 +194,12 @@ export class AlertManagementService {
         const now = new Date();
         this.db.prepare(`
             INSERT INTO alert_configs (
-                id, name, description, tag_base, monitor_hh, monitor_h, monitor_l, monitor_ll,
+                id, name, description, tag_base, connection_id, monitor_hh, monitor_h, monitor_l, monitor_ll,
                 alert_list_id, pattern_id, is_active, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             id, request.name, request.description || '', request.tagBase,
+            request.connectionId || null,
             request.monitorHH ? 1 : 0, request.monitorH ? 1 : 0,
             request.monitorL ? 1 : 0, request.monitorLL ? 1 : 0,
             request.alertListId, request.patternId, request.isActive ? 1 : 0,
@@ -198,11 +212,12 @@ export class AlertManagementService {
         const now = new Date();
         const result = this.db.prepare(`
             UPDATE alert_configs
-            SET name = ?, description = ?, tag_base = ?, monitor_hh = ?, monitor_h = ?,
+            SET name = ?, description = ?, tag_base = ?, connection_id = ?, monitor_hh = ?, monitor_h = ?,
                 monitor_l = ?, monitor_ll = ?, alert_list_id = ?, pattern_id = ?, is_active = ?, updated_at = ?
             WHERE id = ?
         `).run(
             request.name, request.description || '', request.tagBase,
+            request.connectionId || null,
             request.monitorHH ? 1 : 0, request.monitorH ? 1 : 0,
             request.monitorL ? 1 : 0, request.monitorLL ? 1 : 0,
             request.alertListId, request.patternId, request.isActive ? 1 : 0,
@@ -232,6 +247,30 @@ export class AlertManagementService {
     async deleteAlertConfig(id: string): Promise<boolean> {
         const result = this.db.prepare('DELETE FROM alert_configs WHERE id = ?').run(id);
         return result.changes > 0;
+    }
+
+    /** One-shot migration: bind all unqualified alert configs to a connection. Returns rows changed. */
+    assignConnectionToUnqualified(connectionId: string): number {
+        const result = this.db.prepare(
+            "UPDATE alert_configs SET connection_id = ? WHERE connection_id IS NULL OR connection_id = ''"
+        ).run(connectionId);
+        return result.changes;
+    }
+
+    /** Alert configs not bound to any connection (only evaluated via the legacy default). */
+    countUnqualified(): number {
+        const row = this.db.prepare(
+            "SELECT COUNT(*) as count FROM alert_configs WHERE connection_id IS NULL OR connection_id = ''"
+        ).get() as any;
+        return row?.count ?? 0;
+    }
+
+    /** Unbinds rows referencing a deleted connection. Returns rows changed. */
+    clearConnectionReferences(connectionId: string): number {
+        const result = this.db.prepare(
+            'UPDATE alert_configs SET connection_id = NULL WHERE connection_id = ?'
+        ).run(connectionId);
+        return result.changes;
     }
 
     // --- Alert Patterns ---
@@ -302,6 +341,7 @@ export class AlertManagementService {
         return {
             id: row.id, name: row.name, description: row.description,
             tagBase: row.tag_base,
+            connectionId: row.connection_id ?? null,
             monitorHH: Boolean(row.monitor_hh), monitorH: Boolean(row.monitor_h),
             monitorL: Boolean(row.monitor_l), monitorLL: Boolean(row.monitor_ll),
             alertListId: row.alert_list_id, patternId: row.pattern_id,

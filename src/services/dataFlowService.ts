@@ -12,7 +12,8 @@ import { chartGenerationService } from './chartGeneration';
 import { TimeSeriesData, StatisticsResult, TrendResult, QualityCode, TagInfo } from '@/types/historian';
 import { createError } from '@/middleware/errorHandler';
 import { dataFilteringService } from './dataFiltering';
-import { opcuaService } from './opcuaService';
+import { opcuaManager } from './opcua/opcuaConnectionManager';
+import { NO_CONNECTION_MESSAGE } from './opcua/tagResolver';
 
 export interface DataFlowConfig {
   reportConfig: ReportConfig;
@@ -220,8 +221,24 @@ export class DataFlowService {
     // 2. Retrieve OPC UA data (Parallel) - Stage 1: Current value only
     const opcuaPromises = opcuaTags.map(async (tagName) => {
       try {
-        const nodeId = tagName.replace('opcua:', '');
-        const currentData = await opcuaService.readVariable(nodeId);
+        const resolved = opcuaManager.tryResolveTag(tagName);
+        if (!resolved) {
+          // Legacy fallback is off (by default): report an explicit Bad point
+          // rather than silently binding the tag to some connection.
+          reportLogger.warn(NO_CONNECTION_MESSAGE, { tagName });
+          return {
+            tagName,
+            data: [{
+              timestamp: new Date(),
+              value: NaN,
+              quality: QualityCode.Bad,
+              tagName: tagName
+            }]
+          };
+        }
+        const currentData = await opcuaManager
+          .getProvider(resolved.connectionId)
+          .readVariable(resolved.nodeId);
 
         return {
           tagName,
@@ -357,15 +374,17 @@ export class DataFlowService {
       try {
         if (tagName.startsWith('opcua:')) {
           // Minimal metadata for OPC UA for now
+          const resolved = opcuaManager.tryResolveTag(tagName);
+          const nodeId = resolved?.nodeId ?? tagName.replace('opcua:', '');
           return {
             tagName,
             info: {
               name: tagName,
-              description: `OPC UA Node: ${tagName.replace('opcua:', '')}`,
+              description: `OPC UA Node: ${nodeId}`,
               units: '',
               dataType: 'analog',
               dataSource: 'opcua',
-              opcuaNodeId: tagName.replace('opcua:', '')
+              opcuaNodeId: nodeId
             } as any
           };
         }

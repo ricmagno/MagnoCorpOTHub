@@ -9,13 +9,8 @@ import { dataRetrievalService } from './dataRetrieval';
 import { statisticalAnalysisService } from './statisticalAnalysis';
 import { env } from '../config/environment';
 import { logger } from '../utils/logger';
-import { opcuaService, OpcuaService } from './opcuaService';
-import { opcuaConfigService, OpcuaConfigService } from './opcuaConfigService';
-
 export class CacheManager {
   private cacheService?: CacheService;
-  private opcuaService: OpcuaService = opcuaService;
-  private opcuaConfigService: OpcuaConfigService = opcuaConfigService;
   private cacheLogger = logger.child({ service: 'CacheManager' });
   private isInitialized = false;
 
@@ -104,14 +99,6 @@ export class CacheManager {
 
   getCacheService(): CacheService | undefined {
     return this.cacheService;
-  }
-
-  getOpcuaService(): OpcuaService {
-    return this.opcuaService;
-  }
-
-  getOpcuaConfigService(): OpcuaConfigService {
-    return this.opcuaConfigService;
   }
 
   // Cache management methods

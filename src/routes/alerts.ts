@@ -44,6 +44,7 @@ const SaveAlertConfigSchema = z.object({
     name: z.string().min(1).max(100),
     description: z.string().max(500).optional(),
     tagBase: z.string().min(1),
+    connectionId: z.string().nullable().optional(),
     monitorHH: z.boolean(),
     monitorH: z.boolean(),
     monitorL: z.boolean(),

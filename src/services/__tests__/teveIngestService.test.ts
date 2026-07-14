@@ -1,4 +1,4 @@
-import { DataValue } from 'node-opcua';
+import { OpcuaDataValue } from '@/types/opcua';
 
 jest.mock('@/utils/logger', () => ({
   logger: {
@@ -8,21 +8,14 @@ jest.mock('@/utils/logger', () => ({
   },
 }));
 
-jest.mock('../opcuaService', () => ({
-  opcuaService: {
-    onConnect: jest.fn(),
-    onReconnect: jest.fn(),
-    hasSession: jest.fn(),
-    createSubscription: jest.fn(),
-    monitorNode: jest.fn(),
-    terminateSubscription: jest.fn(),
-  },
-}));
-
-jest.mock('../opcuaConfigService', () => ({
-  opcuaConfigService: {
-    listConfigurations: jest.fn(),
-    loadConfiguration: jest.fn(),
+jest.mock('../opcua/opcuaConnectionManager', () => ({
+  opcuaManager: {
+    onAnyConnect: jest.fn(),
+    onAnyReconnect: jest.fn(),
+    listProviders: jest.fn(),
+    findProvider: jest.fn(),
+    terminateSubscriptionAll: jest.fn(),
+    getLegacyDefaultConnectionId: jest.fn(),
   },
 }));
 
@@ -38,7 +31,7 @@ jest.mock('../teveTagConfigService', () => ({
   },
 }));
 
-const TAGS = [{ nodeId: 'ns=2;s=Tag1', tagName: 'Tag1', unit: 'degC', createdAt: '2026-01-01T00:00:00.000Z' }];
+const TAGS = [{ nodeId: 'ns=2;s=Tag1', connectionId: 'cfg1', tagName: 'Tag1', unit: 'degC', createdAt: '2026-01-01T00:00:00.000Z' }];
 
 /** Drains a chain of several sequential awaits (e.g. stop() -> flush() -> setupSubscriptions()). */
 async function flushAsync(ticks = 10): Promise<void> {
@@ -47,18 +40,25 @@ async function flushAsync(ticks = 10): Promise<void> {
   }
 }
 
-function makeDataValue(value: unknown, statusName = 'Good'): DataValue {
+function makeDataValue(value: unknown, statusName = 'Good'): OpcuaDataValue {
   return {
-    value: { value },
-    statusCode: { name: statusName },
-    sourceTimestamp: new Date('2026-01-01T00:00:00.000Z'),
-  } as unknown as DataValue;
+    value,
+    statusName,
+    sourceTimestamp: '2026-01-01T00:00:00.000Z',
+  };
 }
 
 describe('TeveIngestService', () => {
   let fetchMock: jest.Mock;
-  let mockOpcua: { [K in keyof typeof import('../opcuaService').opcuaService]: jest.Mock };
-  let mockOpcuaConfig: { [K in keyof typeof import('../opcuaConfigService').opcuaConfigService]: jest.Mock };
+  let mockManager: { [K in keyof typeof import('../opcua/opcuaConnectionManager').opcuaManager]: jest.Mock };
+  let mockProvider: {
+    connectionId: string;
+    name: string;
+    hasSession: jest.Mock;
+    createSubscription: jest.Mock;
+    monitorNode: jest.Mock;
+    terminateSubscription: jest.Mock;
+  };
   let mockTeveConfig: { [K in keyof typeof import('../teveConfigService').teveConfigService]: jest.Mock };
   let mockTeveTagConfig: { [K in keyof typeof import('../teveTagConfigService').teveTagConfigService]: jest.Mock };
 
@@ -72,24 +72,31 @@ describe('TeveIngestService', () => {
     jest.useRealTimers();
   });
 
-  // jest.resetModules() gives each test a fresh singleton (isolating flushTimer/pending/
-  // scadaSystem state), but that means the mocked deps must also be re-required AFTER the
-  // reset — grabbing them via the file-level `import` would bind to a stale pre-reset copy
+  // jest.resetModules() gives each test a fresh singleton (isolating flushTimer/pending
+  // state), but that means the mocked deps must also be re-required AFTER the reset —
+  // grabbing them via the file-level `import` would bind to a stale pre-reset copy
   // that the freshly-loaded service never actually calls.
   const load = () => {
     jest.resetModules();
-    mockOpcua = require('../opcuaService').opcuaService;
-    mockOpcuaConfig = require('../opcuaConfigService').opcuaConfigService;
+    mockManager = require('../opcua/opcuaConnectionManager').opcuaManager;
     mockTeveConfig = require('../teveConfigService').teveConfigService;
     mockTeveTagConfig = require('../teveTagConfigService').teveTagConfigService;
 
-    mockOpcua.hasSession.mockReturnValue(true);
-    mockOpcua.createSubscription.mockResolvedValue(undefined);
-    mockOpcua.terminateSubscription.mockResolvedValue(undefined);
+    mockProvider = {
+      connectionId: 'cfg1',
+      name: 'Plant A',
+      hasSession: jest.fn().mockReturnValue(true),
+      createSubscription: jest.fn().mockResolvedValue(undefined),
+      monitorNode: jest.fn().mockResolvedValue({ id: 'm1', dispose: jest.fn() }),
+      terminateSubscription: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockManager.listProviders.mockReturnValue([mockProvider]);
+    mockManager.findProvider.mockImplementation((id: string) => (id === 'cfg1' ? mockProvider : null));
+    mockManager.terminateSubscriptionAll.mockResolvedValue(undefined);
+    mockManager.getLegacyDefaultConnectionId.mockReturnValue(null);
     mockTeveConfig.getActiveBaseUrl.mockReturnValue('http://historian.local:3100');
     mockTeveTagConfig.list.mockReturnValue(TAGS);
-    mockOpcuaConfig.listConfigurations.mockResolvedValue([{ id: 'cfg1', name: 'Plant A', isActive: true }]);
-    mockOpcuaConfig.loadConfiguration.mockResolvedValue({ name: 'Plant A' });
 
     return require('../teveIngestService').teveIngestService as typeof import('../teveIngestService').teveIngestService;
   };
@@ -98,30 +105,31 @@ describe('TeveIngestService', () => {
     const service = load();
     await service.start();
 
-    expect(mockOpcua.onConnect).toHaveBeenCalledTimes(1);
-    expect(mockOpcua.onReconnect).toHaveBeenCalledTimes(1);
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
-    expect(mockOpcua.monitorNode).toHaveBeenCalledWith('teve-ingest', 'ns=2;s=Tag1', 1000, expect.any(Function));
+    expect(mockManager.onAnyConnect).toHaveBeenCalledTimes(1);
+    expect(mockManager.onAnyReconnect).toHaveBeenCalledTimes(1);
+    expect(mockProvider.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockProvider.monitorNode).toHaveBeenCalledWith('teve-ingest', 'ns=2;s=Tag1', 1000, expect.any(Function));
   });
 
   it('does not set up subscriptions immediately when no session exists yet', async () => {
     const service = load();
-    mockOpcua.hasSession.mockReturnValue(false);
+    mockProvider.hasSession.mockReturnValue(false);
     await service.start();
 
-    expect(mockOpcua.createSubscription).not.toHaveBeenCalled();
+    expect(mockProvider.createSubscription).not.toHaveBeenCalled();
   });
 
-  it('runs setup via the registered onConnect callback once a session appears', async () => {
+  it('runs setup via the registered onAnyConnect callback once a session appears', async () => {
     const service = load();
-    mockOpcua.hasSession.mockReturnValue(false);
+    mockProvider.hasSession.mockReturnValue(false);
     await service.start();
 
-    const onConnectCb = mockOpcua.onConnect.mock.calls[0]![0];
-    onConnectCb();
+    mockProvider.hasSession.mockReturnValue(true);
+    const onConnectCb = mockManager.onAnyConnect.mock.calls[0]![0];
+    onConnectCb('cfg1');
     await flushAsync();
 
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockProvider.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 
   it('skips setup when TEVE is not enabled/configured', async () => {
@@ -129,7 +137,7 @@ describe('TeveIngestService', () => {
     mockTeveConfig.getActiveBaseUrl.mockReturnValue(null);
     await service.start();
 
-    expect(mockOpcua.createSubscription).not.toHaveBeenCalled();
+    expect(mockProvider.createSubscription).not.toHaveBeenCalled();
   });
 
   it('skips setup when no tags are configured to historize', async () => {
@@ -137,15 +145,41 @@ describe('TeveIngestService', () => {
     mockTeveTagConfig.list.mockReturnValue([]);
     await service.start();
 
-    expect(mockOpcua.createSubscription).not.toHaveBeenCalled();
+    expect(mockProvider.createSubscription).not.toHaveBeenCalled();
   });
 
-  it('derives scadaSystem identity from the active OPC UA config name', async () => {
+  it('skips tags without a connection when no legacy-default connection is designated', async () => {
     const service = load();
-    mockOpcuaConfig.loadConfiguration.mockResolvedValue({ name: 'Plant A!! 01' });
+    mockTeveTagConfig.list.mockReturnValue([
+      { nodeId: 'ns=2;s=Orphan', connectionId: null, tagName: 'Orphan', unit: null, createdAt: '2026-01-01T00:00:00.000Z' },
+    ]);
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    expect(mockProvider.createSubscription).not.toHaveBeenCalled();
+  });
+
+  it('routes unqualified tags through the legacy-default connection when designated', async () => {
+    const service = load();
+    mockManager.getLegacyDefaultConnectionId.mockReturnValue('cfg1');
+    mockTeveTagConfigListLegacy();
+    await service.start();
+
+    expect(mockProvider.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockProvider.monitorNode).toHaveBeenCalledWith('teve-ingest', 'ns=2;s=Orphan', 1000, expect.any(Function));
+
+    function mockTeveTagConfigListLegacy() {
+      mockTeveTagConfig.list.mockReturnValue([
+        { nodeId: 'ns=2;s=Orphan', connectionId: null, tagName: 'Orphan', unit: null, createdAt: '2026-01-01T00:00:00.000Z' },
+      ]);
+    }
+  });
+
+  it('derives scadaSystem identity from the connection name', async () => {
+    const service = load();
+    mockProvider.name = 'Plant A!! 01';
+    await service.start();
+
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(42));
     jest.advanceTimersByTime(5000);
     await Promise.resolve();
@@ -160,27 +194,11 @@ describe('TeveIngestService', () => {
     );
   });
 
-  it('falls back to the generic identity when no active OPC UA config is resolvable', async () => {
-    const service = load();
-    mockOpcuaConfig.listConfigurations.mockResolvedValue([]);
-    mockOpcuaConfig.loadConfiguration.mockRejectedValue(new Error('no config with id ""'));
-    await service.start();
-
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
-    monitorCb(makeDataValue(1));
-    jest.advanceTimersByTime(5000);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    const body = JSON.parse((fetchMock.mock.calls[0]![1] as any).body);
-    expect(body.scadaSystem).toEqual({ id: 'opcua-source', name: 'OPC UA Source' });
-  });
-
   it('enqueues monitored values and flushes them as a batch on the flush interval', async () => {
     const service = load();
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(72.5));
     monitorCb(makeDataValue(73.1));
 
@@ -200,7 +218,7 @@ describe('TeveIngestService', () => {
     const service = load();
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(true));
     monitorCb(makeDataValue(false));
     monitorCb(makeDataValue('unexpected-string'));
@@ -217,7 +235,7 @@ describe('TeveIngestService', () => {
     const service = load();
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(1, 'Bad'));
 
     jest.advanceTimersByTime(5000);
@@ -242,7 +260,7 @@ describe('TeveIngestService', () => {
     const service = load();
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(1));
 
     mockTeveConfig.getActiveBaseUrl.mockReturnValue(null);
@@ -257,7 +275,7 @@ describe('TeveIngestService', () => {
     fetchMock.mockRejectedValue(new Error('network down'));
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(1));
 
     jest.advanceTimersByTime(5000);
@@ -272,16 +290,16 @@ describe('TeveIngestService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('stop() terminates the subscription, clears the flush timer, and flushes remaining pending data', async () => {
+  it('stop() terminates subscriptions, clears the flush timer, and flushes remaining pending data', async () => {
     const service = load();
     await service.start();
 
-    const monitorCb = mockOpcua.monitorNode.mock.calls[0]![3];
+    const monitorCb = mockProvider.monitorNode.mock.calls[0]![3];
     monitorCb(makeDataValue(1));
 
     await service.stop();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
+    expect(mockManager.terminateSubscriptionAll).toHaveBeenCalledWith('teve-ingest');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // Timer should be cleared — advancing time triggers no further flush.
@@ -294,24 +312,24 @@ describe('TeveIngestService', () => {
   it('refresh() stops and re-establishes subscriptions', async () => {
     const service = load();
     await service.start();
-    mockOpcua.createSubscription.mockClear();
+    mockProvider.createSubscription.mockClear();
 
     await service.refresh();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockManager.terminateSubscriptionAll).toHaveBeenCalledWith('teve-ingest');
+    expect(mockProvider.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 
-  it('onReconnect callback triggers a refresh', async () => {
+  it('onAnyReconnect callback refreshes only that connection', async () => {
     const service = load();
     await service.start();
-    mockOpcua.createSubscription.mockClear();
+    mockProvider.createSubscription.mockClear();
 
-    const onReconnectCb = mockOpcua.onReconnect.mock.calls[0]![0];
-    onReconnectCb();
+    const onReconnectCb = mockManager.onAnyReconnect.mock.calls[0]![0];
+    onReconnectCb('cfg1');
     await flushAsync();
 
-    expect(mockOpcua.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
-    expect(mockOpcua.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
+    expect(mockProvider.terminateSubscription).toHaveBeenCalledWith('teve-ingest');
+    expect(mockProvider.createSubscription).toHaveBeenCalledWith('teve-ingest', 1000);
   });
 });

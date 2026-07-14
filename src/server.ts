@@ -631,12 +631,14 @@ async function performGracefulShutdown(signal: string): Promise<void> {
     logger.error('✗ Update checker shutdown failed:', error);
   }
 
-  // 9. Stop Alert Eval Service and TEVE ingestion
+  // 9. Stop Alert Eval Service, TEVE ingestion, and OPC UA connections
   try {
     const { alertEvalService } = await import('@/services/alertEvalService');
     const { teveIngestService } = await import('@/services/teveIngestService');
     await Promise.all([alertEvalService.stop(), teveIngestService.stop()]);
-    logger.info('✓ Alert evaluation service and TEVE ingestion stopped');
+    const { opcuaManager } = await import('@/services/opcua/opcuaConnectionManager');
+    await opcuaManager.stopAll();
+    logger.info('✓ Alert evaluation service, TEVE ingestion, and OPC UA connections stopped');
   } catch (error) {
     logger.error('✗ Alert evaluation service shutdown failed:', error);
   }

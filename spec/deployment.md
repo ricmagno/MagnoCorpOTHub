@@ -41,3 +41,9 @@ The system implements a "Pull-based" continuous deployment strategy via a system
 In addition to standard `.env` variables, the following are crucial for containers:
 - `IS_DOCKER=true`: Enables specific logging and path logic for container environments.
 - `DATA_DIR`, `REPORTS_DIR`, `LOG_FILE`: Points to persistent volume mounts.
+- `OPCUA_MAX_CONNECTIONS` (default 64), `OPCUA_CONNECT_CONCURRENCY` (default 5): multi-connection OPC UA limits.
+
+## 🔌 OPC UA Multi-Connection Sizing & Security
+- **Memory**: budget **15–25 MB per OPC UA connection** worst case (large address spaces, many monitored items) plus Node.js baseline. At 50 connections plan 750 MB–1.25 GB for OPC UA alone — treat a 1 Gi container limit as the floor and set **2 Gi** at 50 connections. The `/api/health/services` payload reports process RSS/heap so operators can watch pressure; push connections beyond ~50–64 to edge collectors (Phase 2) rather than raising the in-process limit.
+- **Certificates**: all local connections share one client certificate (one PKI folder at `DATA_DIR/pki`) and therefore one **ApplicationURI**. Strict OPC UA servers that require a unique ApplicationURI per client need the (reserved, not yet implemented) per-connection `certificateProfile` override.
+- **Collectors (Phase 2)**: the app→collector socket.io link carries decrypted OPC UA credentials on configSync — production deployments MUST terminate it over TLS (`wss://`). Collector token rotation is manual in v1: register a new collector, then delete the old one.

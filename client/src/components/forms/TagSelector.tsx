@@ -36,6 +36,9 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
   const [tagSourceTab, setTagSourceTab] = useState<'historian' | 'opcua'>('historian');
   const [opcuaSearchTerm, setOpcuaSearchTerm] = useState('');
   const [showSystemNodes, setShowSystemNodes] = useState(false);
+  // Enabled OPC UA connections; tags are emitted qualified as opcua:<alias>:<nodeId>
+  const [opcuaConnections, setOpcuaConnections] = useState<{ id: string; alias: string; name: string }[]>([]);
+  const [opcuaConnectionAlias, setOpcuaConnectionAlias] = useState<string>('');
 
   // OPC UA allowed widget types
   const isLiveWidget = widgetType === 'value-block' || widgetType === 'radial-gauge' || widgetType === 'radar';
@@ -74,13 +77,35 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
     loadTags();
   }, []);
 
-  // Fetch OPC UA tags when path changes
+  // Load enabled OPC UA connections when the opcua tab is first used
   useEffect(() => {
-    if (tagSourceTab === 'opcua' && isLiveWidget) {
+    if (tagSourceTab !== 'opcua' || !isLiveWidget || opcuaConnections.length > 0) return;
+    const loadConnections = async () => {
+      try {
+        const response = await apiService.getOpcuaConfigs();
+        if (response.success && response.data) {
+          const enabled = response.data
+            .filter((c) => c.enabled)
+            .map((c) => ({ id: c.id, alias: c.alias, name: c.name }));
+          setOpcuaConnections(enabled);
+          if (enabled.length > 0 && !opcuaConnectionAlias) {
+            setOpcuaConnectionAlias(enabled[0].alias);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load OPC UA connections:', error);
+      }
+    };
+    loadConnections();
+  }, [tagSourceTab, isLiveWidget, opcuaConnections.length, opcuaConnectionAlias]);
+
+  // Fetch OPC UA tags when path or connection changes
+  useEffect(() => {
+    if (tagSourceTab === 'opcua' && isLiveWidget && opcuaConnectionAlias) {
       const fetchOpcua = async () => {
         try {
           setIsBrowsingOpcua(true);
-          const response = await apiService.browseOpcuaTags(opcuaPath[opcuaPath.length - 1]);
+          const response = await apiService.browseOpcuaTags(opcuaPath[opcuaPath.length - 1], opcuaConnectionAlias);
           if (response.success && response.data) {
             setOpcuaTags(response.data);
           }
@@ -93,7 +118,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       };
       fetchOpcua();
     }
-  }, [opcuaPath, tagSourceTab, widgetType, isLiveWidget]);
+  }, [opcuaPath, tagSourceTab, widgetType, isLiveWidget, opcuaConnectionAlias]);
 
   // Click outside handler
   useEffect(() => {
@@ -312,6 +337,25 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
               </div>
             </div>
 
+            {/* Connection selector — tags are added as opcua:<alias>:<nodeId> */}
+            {opcuaConnections.length > 0 && (
+              <div className="flex items-center space-x-2 px-1">
+                <Server className="h-3.5 w-3.5 text-gray-400" />
+                <select
+                  className="text-xs rounded-md border border-gray-300 bg-white px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={opcuaConnectionAlias}
+                  onChange={(e) => {
+                    setOpcuaConnectionAlias(e.target.value);
+                    setOpcuaPath(['ns=0;i=85']);
+                  }}
+                >
+                  {opcuaConnections.map((c) => (
+                    <option key={c.id} value={c.alias}>{c.name} ({c.alias})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Navigation breadcrumbs */}
             <div className="flex items-center text-xs text-primary-600 overflow-x-auto whitespace-nowrap pb-1 border-b border-gray-100">
               <button
@@ -347,7 +391,10 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
               ) : (
                 filteredOpcuaTags.map((node) => {
                   const isOpcuaTag = node.nodeClass === 'Variable';
-                  const isSelected = selectedTags.includes(`opcua:${node.nodeId}`);
+                  const qualifiedTag = opcuaConnectionAlias
+                    ? `opcua:${opcuaConnectionAlias}:${node.nodeId}`
+                    : `opcua:${node.nodeId}`;
+                  const isSelected = selectedTags.includes(qualifiedTag) || selectedTags.includes(`opcua:${node.nodeId}`);
 
                   return (
                     <div key={node.nodeId} className="flex items-center justify-between group">
@@ -383,11 +430,10 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
                           size="sm"
                           variant={isSelected ? "secondary" : "outline"}
                           onClick={() => {
-                            const tagName = `opcua:${node.nodeId}`;
                             if (isSelected) {
-                              onChange(selectedTags.filter(t => t !== tagName));
+                              onChange(selectedTags.filter(t => t !== qualifiedTag && t !== `opcua:${node.nodeId}`));
                             } else {
-                              handleAddTag(tagName);
+                              handleAddTag(qualifiedTag);
                             }
                           }}
                           className="h-8 px-2 rounded-l-none"

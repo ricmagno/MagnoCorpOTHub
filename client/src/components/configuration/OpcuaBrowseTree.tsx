@@ -21,6 +21,11 @@ interface OpcuaBrowseTreeProps {
    * where they want to review/edit before adding — this is purely additive convenience.
    */
   onAdd?: (nodeId: string, displayName: string) => void;
+  /**
+   * OPC UA connection (id or alias) to browse. Omitting it browses the
+   * legacy-default connection, which only exists if an admin designated one.
+   */
+  connectionId?: string;
 }
 
 const ROOT: BreadcrumbEntry = { nodeId: 'RootFolder', displayName: 'Root' };
@@ -46,7 +51,7 @@ const isSystemNode = (node: OpcuaTagInfo): boolean => nodeLabel(node).startsWith
  * (a tag) instead of hand-typing node IDs — backed by the existing GET /api/opcua/browse
  * (paginated per-level, since OPC UA address spaces can be arbitrarily deep/wide).
  */
-export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onClose, onAdd }) => {
+export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onClose, onAdd, connectionId }) => {
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([ROOT]);
   const [nodes, setNodes] = useState<OpcuaTagInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -74,7 +79,7 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.browseOpcuaTags(nodeId);
+      const response = await apiService.browseOpcuaTags(nodeId, connectionId);
       if (response.success && response.data) {
         setNodes(response.data);
       } else {
@@ -86,7 +91,7 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [connectionId]);
 
   useEffect(() => {
     fetchChildren(currentNodeId);
