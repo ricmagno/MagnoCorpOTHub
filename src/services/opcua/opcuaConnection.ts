@@ -10,6 +10,8 @@ import {
     ClientMonitoredItem,
     TimestampsToReturn,
     DataValue,
+    browseAll,
+    BrowseDirection,
 } from 'node-opcua';
 import type { MonitoringParametersOptions } from 'node-opcua';
 import { v4 as uuidv4 } from 'uuid';
@@ -473,13 +475,32 @@ export class OpcuaConnection implements OpcuaConnectionProvider {
         }
     }
 
+    /**
+     * Uses node-opcua's browseAll (not session.browse directly) — real B&R PLC
+     * address spaces flatten hundreds of function-block instances into one folder
+     * (1000+ children), and a raw session.browse() silently drops everything past
+     * the server's own per-request page limit with no continuation-point handling.
+     * browseAll loops browseNext() until the continuation point is exhausted.
+     */
     async browse(nodeId: string = 'RootFolder'): Promise<OpcuaTagInfo[]> {
         if (!this.session) {
             throw createError(`No active OPC UA session on connection '${this.name}'`, 503);
         }
 
         try {
-            const browseResult = await this.session.browse(nodeId);
+            // browseAll's bare-string coercion only sets {nodeId} — unlike
+            // session.browse(string)'s own internal coercion, it leaves
+            // referenceTypeId/resultMask/etc. unset, which some servers (confirmed:
+            // a real B&R PLC) interpret as "return nothing" rather than "use
+            // defaults". Pass the exact same defaults session.browse(string) used.
+            const browseResult = await browseAll(this.session, {
+                nodeId,
+                browseDirection: BrowseDirection.Forward,
+                includeSubtypes: true,
+                nodeClassMask: 0,
+                referenceTypeId: 'HierarchicalReferences',
+                resultMask: 63,
+            });
             const tags: OpcuaTagInfo[] = [];
 
             if (browseResult.references) {

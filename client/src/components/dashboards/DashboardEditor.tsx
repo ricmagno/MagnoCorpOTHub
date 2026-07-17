@@ -330,7 +330,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                                             onChange={tags => handleUpdateWidget(widget.id, { tags })}
                                             maxTags={5}
                                             widgetType={widget.type}
-                                            className="border shadow-none h-[180px] overflow-auto"
+                                            className="border shadow-none"
                                         />
                                     </div>
                                 </CardContent>

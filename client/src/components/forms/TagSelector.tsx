@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { List, type RowComponentProps } from 'react-window';
 import { Search, Tag, X, Plus, RefreshCw, Server, Activity } from 'lucide-react';
 import { TagInfo } from '../../types/api';
 import { OpcuaTagInfo } from '../../types/opcuaConfig';
@@ -16,13 +17,84 @@ interface TagSelectorProps {
   widgetType?: string;
 }
 
-export const TagSelector: React.FC<TagSelectorProps> = ({
+const OPCUA_ROW_HEIGHT = 40;
+
+interface OpcuaNodeRowProps {
+  tags: OpcuaTagInfo[];
+  selectedTags: string[];
+  opcuaConnectionAlias: string;
+  onNavigate: (nodeId: string) => void;
+  onToggleTag: (node: OpcuaTagInfo, qualifiedTag: string, isSelected: boolean) => void;
+}
+
+// Extracted so react-window can render it as a row; the list itself is
+// virtualized (see List below), so at most ~15 of these ever mount at once
+// regardless of how many nodes (confirmed up to 1800+ on a real PLC) are in
+// the current folder — that bound is what actually fixes the freeze.
+function OpcuaNodeRow({
+  index,
+  style,
+  tags,
+  selectedTags,
+  opcuaConnectionAlias,
+  onNavigate,
+  onToggleTag,
+}: RowComponentProps<OpcuaNodeRowProps>) {
+  const node = tags[index];
+  const isOpcuaTag = node.nodeClass === 'Variable';
+  const qualifiedTag = opcuaConnectionAlias
+    ? `opcua:${opcuaConnectionAlias}:${node.nodeId}`
+    : `opcua:${node.nodeId}`;
+  const isSelected = selectedTags.includes(qualifiedTag) || selectedTags.includes(`opcua:${node.nodeId}`);
+
+  return (
+    <div style={style} className="flex items-center justify-between group px-0.5 py-[2px]">
+      <button
+        onClick={() => {
+          if (!isOpcuaTag) onNavigate(node.nodeId);
+        }}
+        disabled={isOpcuaTag}
+        className={cn(
+          'flex-1 h-full text-left px-3 text-sm rounded-l-md transition-all',
+          isOpcuaTag
+            ? 'cursor-default bg-white/50 border border-transparent'
+            : 'hover:bg-blue-50 text-blue-700 bg-white border border-gray-100 shadow-sm hover:border-blue-200'
+        )}
+      >
+        <div className="flex items-center h-full">
+          {isOpcuaTag
+            ? <Activity className="h-3.5 w-3.5 mr-2 text-indigo-400 flex-shrink-0" />
+            : <Server className="h-3.5 w-3.5 mr-2 text-blue-500 flex-shrink-0" />
+          }
+          <span className={cn(
+            "font-medium truncate max-w-[200px]",
+            isOpcuaTag ? "text-gray-700" : "text-blue-700"
+          )}>
+            {node.displayName}
+          </span>
+        </div>
+      </button>
+      {isOpcuaTag && (
+        <Button
+          size="sm"
+          variant={isSelected ? "secondary" : "outline"}
+          onClick={() => onToggleTag(node, qualifiedTag, isSelected)}
+          className="h-full px-2 rounded-l-none"
+        >
+          {isSelected ? 'Remove' : 'Add'}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSelector({
   selectedTags,
   onChange,
   className,
   maxTags = 10,
   widgetType,
-}) => {
+}) {
   const [availableTags, setAvailableTags] = useState<TagInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -167,7 +239,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
     return filteredTags.filter(tag => !selectedTags.includes(tag.name));
   }, [filteredTags, selectedTags]);
 
-  const handleAddTag = (tagName: string) => {
+  const handleAddTag = useCallback((tagName: string) => {
     // Check if it's an OPC UA tag
     if (tagName.startsWith('opcua:')) {
       if (!isLiveWidget) {
@@ -187,7 +259,28 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       setShowDropdown(false);
       setError(null);
     }
-  };
+  }, [isLiveWidget, selectedTags, maxTags, onChange]);
+
+  const handleNavigateOpcua = useCallback((nodeId: string) => {
+    setOpcuaPath(prev => [...prev, nodeId]);
+  }, []);
+
+  const handleToggleOpcuaTag = useCallback((node: OpcuaTagInfo, qualifiedTag: string, isSelected: boolean) => {
+    if (isSelected) {
+      onChange(selectedTags.filter(t => t !== qualifiedTag && t !== `opcua:${node.nodeId}`));
+      setError(null);
+    } else {
+      handleAddTag(qualifiedTag);
+    }
+  }, [selectedTags, onChange, handleAddTag]);
+
+  const opcuaRowProps = useMemo(() => ({
+    tags: filteredOpcuaTags,
+    selectedTags,
+    opcuaConnectionAlias,
+    onNavigate: handleNavigateOpcua,
+    onToggleTag: handleToggleOpcuaTag,
+  }), [filteredOpcuaTags, selectedTags, opcuaConnectionAlias, handleNavigateOpcua, handleToggleOpcuaTag]);
 
   const handleManualAdd = () => {
     if (!searchTerm.trim()) return;
@@ -378,72 +471,29 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
               ))}
             </div>
 
-            <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            <div className="border border-gray-100 rounded-md bg-white overflow-hidden">
               {isBrowsingOpcua ? (
                 <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                   <RefreshCw className="h-6 w-6 animate-spin text-primary-500 mb-2" />
                   <span className="text-xs">Browsing OPC UA...</span>
                 </div>
               ) : filteredOpcuaTags.length === 0 ? (
-                <div className="px-3 py-6 text-sm text-gray-400 italic text-center rounded-md border border-dashed border-gray-200 bg-white">
+                <div className="px-3 py-6 text-sm text-gray-400 italic text-center border border-dashed border-gray-200">
                   {opcuaSearchTerm ? 'No nodes match your search' : 'No nodes found in this folder'}
                 </div>
               ) : (
-                filteredOpcuaTags.map((node) => {
-                  const isOpcuaTag = node.nodeClass === 'Variable';
-                  const qualifiedTag = opcuaConnectionAlias
-                    ? `opcua:${opcuaConnectionAlias}:${node.nodeId}`
-                    : `opcua:${node.nodeId}`;
-                  const isSelected = selectedTags.includes(qualifiedTag) || selectedTags.includes(`opcua:${node.nodeId}`);
-
-                  return (
-                    <div key={node.nodeId} className="flex items-center justify-between group">
-                      <button
-                        onClick={() => {
-                          if (!isOpcuaTag) {
-                            setOpcuaPath([...opcuaPath, node.nodeId]);
-                          }
-                        }}
-                        disabled={isOpcuaTag}
-                        className={cn(
-                          'flex-1 text-left px-3 py-2 text-sm rounded-l-md transition-all',
-                          isOpcuaTag
-                            ? 'cursor-default bg-white/50 border border-transparent'
-                            : 'hover:bg-blue-50 text-blue-700 bg-white border border-gray-100 shadow-sm hover:border-blue-200'
-                        )}
-                      >
-                        <div className="flex items-center">
-                          {isOpcuaTag
-                            ? <Activity className="h-3.5 w-3.5 mr-2 text-indigo-400" />
-                            : <Server className="h-3.5 w-3.5 mr-2 text-blue-500" />
-                          }
-                          <span className={cn(
-                            "font-medium truncate max-w-[200px]",
-                            isOpcuaTag ? "text-gray-700" : "text-blue-700"
-                          )}>
-                            {node.displayName}
-                          </span>
-                        </div>
-                      </button>
-                      {isOpcuaTag && (
-                        <Button
-                          size="sm"
-                          variant={isSelected ? "secondary" : "outline"}
-                          onClick={() => {
-                            if (isSelected) {
-                              onChange(selectedTags.filter(t => t !== qualifiedTag && t !== `opcua:${node.nodeId}`));
-                            } else {
-                              handleAddTag(qualifiedTag);
-                            }
-                          }}
-                          className="h-8 px-2 rounded-l-none"
-                        >
-                          {isSelected ? 'Remove' : 'Add'}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })
+                // Virtualized: a folder can have 1000+ flat children on real PLCs (confirmed
+                // against a live B&R device) — rendering all of them as real DOM nodes on every
+                // selection is what caused whole-app freezes. Only ~7 rows (280/40) are ever
+                // actually mounted at once, regardless of filteredOpcuaTags.length.
+                <List
+                  rowComponent={OpcuaNodeRow}
+                  rowCount={filteredOpcuaTags.length}
+                  rowHeight={OPCUA_ROW_HEIGHT}
+                  rowProps={opcuaRowProps}
+                  style={{ height: 280 }}
+                  className="custom-scrollbar"
+                />
               )}
             </div>
           </div>
@@ -499,4 +549,4 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       </CardContent>
     </Card>
   );
-};
+});
