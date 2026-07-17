@@ -128,6 +128,31 @@ export class HistorianConnection {
   }
 
   /**
+   * connect() retries forever when there's no active database configuration
+   * (maxAttempts defaults to Number.MAX_SAFE_INTEGER — by design, so the app
+   * picks up a config an admin adds later without a restart). A caller that
+   * needs a query result now must not join that unbounded wait — race it
+   * against a hard timeout instead, same pattern as validateConnection()
+   * below. The background connect() attempt (if one was already in flight)
+   * keeps retrying regardless; a config added later still gets picked up.
+   */
+  private async connectBounded(timeoutMs = 8000): Promise<void> {
+    let timeoutId: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        this.connect(),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(createError('Database connection not available (timed out waiting to connect)', 503));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  /**
    * Disconnect from database
    */
   async disconnect(): Promise<void> {
@@ -223,7 +248,7 @@ export class HistorianConnection {
           });
 
           this.isConnected = false;
-          await this.connect();
+          await this.connectBounded();
         }
 
         if (!this.pool || !this.pool.connected) {

@@ -839,6 +839,14 @@ export class DataRetrievalService {
    */
   private async getHistorianMetadataFallback(nodeId: string): Promise<{ description?: string; units?: string } | null> {
     try {
+      // This is optional enrichment for an OPC UA-sourced value — never worth
+      // paying executeQuery()'s connect-and-retry cost for. Skip immediately
+      // (rather than attempting and letting it retry/time out) when Historian
+      // isn't already connected; an unconfigured Historian won't become
+      // configured mid-retry, so waiting here only stalls the OPC UA read that
+      // triggered this lookup.
+      if (!this.getConnection().getConnectionStatus().connected) return null;
+
       // Extract base name after the last dot
       const lastDotIndex = nodeId.lastIndexOf('.');
       const baseName = lastDotIndex !== -1 ? nodeId.substring(lastDotIndex + 1) : nodeId;
