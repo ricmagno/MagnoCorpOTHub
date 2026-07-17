@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Folder, Activity, ChevronRight, Home, ArrowLeft, Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { X, Folder, Activity, ChevronRight, Home, ArrowLeft, Plus, Search } from 'lucide-react';
 import { Spinner } from '../ui/Spinner';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { cn } from '../../utils/cn';
 import { apiService } from '../../services/api';
 import { OpcuaTagInfo } from '../../types/opcuaConfig';
@@ -57,6 +58,7 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSystemNodes, setShowSystemNodes] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -97,22 +99,32 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
     fetchChildren(currentNodeId);
   }, [currentNodeId, fetchChildren]);
 
+  const visibleNodes = useMemo(() => {
+    const base = showSystemNodes ? nodes : nodes.filter((n) => !isSystemNode(n));
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return base;
+    return base.filter((n) => nodeLabel(n).toLowerCase().includes(term) || n.nodeId.toLowerCase().includes(term));
+  }, [nodes, showSystemNodes, searchTerm]);
+
   // Re-measure whenever the visible list changes size (new nodes loaded, system-node
   // filter toggled) — the content height changes without a scroll event firing.
   useEffect(() => {
     updateScrollShadows();
-  }, [nodes, showSystemNodes, loading, updateScrollShadows]);
+  }, [visibleNodes, loading, updateScrollShadows]);
 
   const handleNavigateInto = (node: OpcuaTagInfo) => {
     setBreadcrumb((prev) => [...prev, { nodeId: node.nodeId, displayName: nodeLabel(node) }]);
+    setSearchTerm('');
   };
 
   const handleBreadcrumbClick = (index: number) => {
     setBreadcrumb((prev) => prev.slice(0, index + 1));
+    setSearchTerm('');
   };
 
   const handleGoUp = () => {
     if (breadcrumb.length > 1) setBreadcrumb((prev) => prev.slice(0, -1));
+    setSearchTerm('');
   };
 
   const handleSelectVariable = (node: OpcuaTagInfo) => {
@@ -125,7 +137,6 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
     onAdd?.(node.nodeId, nodeLabel(node));
   };
 
-  const visibleNodes = showSystemNodes ? nodes : nodes.filter((n) => !isSystemNode(n));
   const objects = visibleNodes.filter((n) => n.nodeClass === 'Object');
   const variables = visibleNodes.filter((n) => n.nodeClass === 'Variable');
 
@@ -148,7 +159,18 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
           </div>
         </div>
 
-        <div className="px-6 py-3 border-b border-gray-200">
+        <div className="px-6 py-3 border-b border-gray-200 space-y-3">
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Filter tags in this folder..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-9 h-9 text-sm"
+              aria-label="Filter tags in the current folder"
+            />
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -233,7 +255,7 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
 
               {visibleNodes.length === 0 && (
                 <div className="py-8 text-center text-gray-500 text-sm">
-                  No child nodes found
+                  {searchTerm.trim() ? 'No tags match your filter' : 'No child nodes found'}
                 </div>
               )}
 

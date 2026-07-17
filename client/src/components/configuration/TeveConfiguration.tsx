@@ -19,9 +19,8 @@ const DEFAULTS: TeveForm = { enabled: false, baseUrl: '' };
 /**
  * Admin settings for the TEVE (Tensor Embedding Vector Engine) integration — a
  * separate, optional time-series/vector-search service deployed in its own
- * container(s) alongside the AVEVA Historian, not a replacement for it. Most
- * deployments won't have this service; it stays disabled until an admin points it
- * at a real instance.
+ * container(s). Most deployments won't have this service; it stays disabled
+ * until an admin points it at a real instance.
  */
 export const TeveConfiguration: React.FC = () => {
   const [form, setForm] = useState<TeveForm>(DEFAULTS);
@@ -103,10 +102,9 @@ export const TeveConfiguration: React.FC = () => {
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">TEVE</h3>
             <p className="text-xs text-gray-500 mt-1">
               <strong className="font-medium text-gray-600">TEVE</strong> — Tensor Embedding Vector Engine — is
-              a modern time-series &amp; vector-search historian, deployed in its own container(s) — usable
-              alongside the AVEVA Historian for added capability (screenshot search, similar trends, similar
-              anomalies in the Insights tab), or as a standalone alternative historian in its own right. Most
-              deployments won't have this running yet; leave disabled if you don't.
+              a modern time-series &amp; vector-search historian, deployed in its own container(s), with
+              built-in screenshot search, trend similarity, and anomaly detection (available in the Insights
+              tab). Most deployments won't have this running yet; leave disabled if you don't.
             </p>
           </div>
         </div>
