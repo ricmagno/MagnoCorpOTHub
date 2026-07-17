@@ -237,6 +237,17 @@ export class HistorianConnection {
    * Execute a SQL query with error handling and logging
    */
   async executeQuery<T = any>(query: string, params?: Record<string, any>): Promise<IResult<T>> {
+    // Fail fast, no retries, when there's definitively no config to connect
+    // to — retrying (5 attempts, exponential backoff) can't fix a config
+    // problem, only a transient one. Without this check, connectBounded()'s
+    // own error message contains "connection"/"timeout", which happen to
+    // match RetryHandler's retryable-error keywords, so the outer retry
+    // loop still burned ~55s (5 x 8s bounded waits + backoff) before this
+    // fix, even though the very first check already knew the answer.
+    if (!this.isConnected && !(await databaseConfigService.getActiveConfigurationAsync())) {
+      throw createError('No active database configuration found. Historian connection required.', 503);
+    }
+
     return RetryHandler.executeWithRetry(
       async () => {
         // Robust check for connection state
