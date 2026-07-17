@@ -61,7 +61,15 @@ export const OpcuaConfiguration: React.FC = () => {
     const handleTestConnection = async (config: OpcuaConfig, id?: string) => {
         try {
             setIsTesting(id || 'new');
-            const response = await apiService.testOpcuaConnection(config);
+            // GET /opcua/configs never returns the stored password, so a saved
+            // config with no password currently typed means "test what's already
+            // saved" — resolve and test that server-side instead of resubmitting
+            // a blank password (which previously produced a false-negative
+            // BadUserAccessDenied). A password typed into the form (new config,
+            // or editing and changing credentials) always takes priority.
+            const response = id && id !== 'new' && !config.password
+                ? await apiService.testSavedOpcuaConnection(id)
+                : await apiService.testOpcuaConnection(config);
             if (response.success) {
                 success('Connection Successful', response.message);
             } else {

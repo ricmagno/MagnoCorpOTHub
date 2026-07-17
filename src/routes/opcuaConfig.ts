@@ -42,7 +42,11 @@ router.post('/configs', [
 }));
 
 // Tests a candidate config on a throwaway, unsupervised connection —
-// never touches live connections or their subscriptions.
+// never touches live connections or their subscriptions. Only for
+// not-yet-saved form state; GET /configs never returns a password, so
+// resubmitting an already-saved config's fetched data here would silently
+// probe with an empty password. Use /configs/:id/test-connection instead
+// once a config has been saved.
 router.post('/test-connection', asyncHandler(async (req: Request, res: Response) => {
     apiLogger.info('Testing OPC UA connection...', { endpoint: req.body.endpointUrl });
     const probe = new OpcuaConnection(
@@ -50,6 +54,25 @@ router.post('/test-connection', asyncHandler(async (req: Request, res: Response)
         getSharedCertificateManager(),
         false
     );
+    try {
+        await probe.start();
+        res.json({ success: true, message: 'Connection successful' });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        await probe.stop();
+    }
+}));
+
+// Tests an already-saved config using its real decrypted password, resolved
+// server-side — GET /configs strips the password, so the saved-row UI can't
+// resubmit it to POST /test-connection without silently testing an empty
+// password (produces a false-negative BadUserAccessDenied).
+router.post('/configs/:id/test-connection', asyncHandler(async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const resolved = await opcuaConfigService.loadResolvedConfiguration(id);
+    apiLogger.info('Testing saved OPC UA connection...', { id, endpoint: resolved.endpointUrl });
+    const probe = new OpcuaConnection(resolved, getSharedCertificateManager(), false);
     try {
         await probe.start();
         res.json({ success: true, message: 'Connection successful' });

@@ -989,6 +989,14 @@ export const apiService = {
     });
   },
 
+  // For an already-saved config: resolves the real stored password server-side,
+  // so it doesn't silently test with the blank password GET /opcua/configs returns.
+  async testSavedOpcuaConnection(id: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return fetchApi(`/opcua/configs/${id}/test-connection`, {
+      method: 'POST',
+    });
+  },
+
   async browseOpcuaTags(nodeId?: string, connectionId?: string): Promise<ApiResponse<OpcuaTagInfo[]>> {
     const params = new URLSearchParams();
     if (nodeId) params.append('nodeId', nodeId);
