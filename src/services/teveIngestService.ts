@@ -104,6 +104,7 @@ class TeveIngestService {
     const legacyId = opcuaManager.getLegacyDefaultConnectionId();
     const skipped: string[] = [];
     const matched = tags.filter((tag) => {
+      if (!tag.enabled) return false;
       if (tag.connectionId) return tag.connectionId === connectionId;
       if (legacyId) return legacyId === connectionId;
       skipped.push(tag.tagName);

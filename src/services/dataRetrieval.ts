@@ -63,7 +63,7 @@ export class DataRetrievalService {
     // 2. Check for TEVE tags — a separate, optional, admin-configured
     // alternative/parallel historian (see teveConfigService). Not the AVEVA connection.
     if (tagName.startsWith('tensor:')) {
-      return this.getTensorTimeSeriesData(tagName, timeRange);
+      return this.getTensorTimeSeriesData(tagName, timeRange, options);
     }
 
     try {
@@ -537,7 +537,7 @@ export class DataRetrievalService {
       if (tensorTags.length > 0) {
         const tensorPromises = tensorTags.map(async (tagName) => {
           try {
-            const data = await this.getTensorTimeSeriesData(tagName, timeRange);
+            const data = await this.getTensorTimeSeriesData(tagName, timeRange, options);
             return { tagName, data };
           } catch (error) {
             dbLogger.warn(`TEVE tag query failed: ${tagName}`, { error });
@@ -967,7 +967,8 @@ export class DataRetrievalService {
    */
   private async getTensorTimeSeriesData(
     tagName: string,
-    timeRange: TimeRange
+    timeRange: TimeRange,
+    options?: HistorianQueryOptions
   ): Promise<TimeSeriesData[]> {
     const baseUrl = teveConfigService.getActiveBaseUrl();
     if (!baseUrl) {
@@ -982,10 +983,15 @@ export class DataRetrievalService {
     }
 
     try {
+      // Live mode means "most recent value only" (mirrors AVEVA Historian's Live
+      // view) — without this, a live dashboard widget re-fetches the entire time
+      // range from TEVE on every poll instead of just the latest point.
+      const limit = options?.mode === RetrievalMode.Live ? 1 : options?.limit;
       const params = new URLSearchParams({
         tag,
         from: timeRange.startTime.toISOString(),
-        to: timeRange.endTime.toISOString()
+        to: timeRange.endTime.toISOString(),
+        ...(limit ? { limit: String(limit) } : {})
       });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15_000);

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, ListTree, Search, Server } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Trash2, ListTree, Search, Server, Download, Upload } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { Button } from '../ui/Button';
 import { OpcuaBrowseTree } from './OpcuaBrowseTree';
 import { apiService } from '../../services/api';
+import { cn } from '../../utils/cn';
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
@@ -15,6 +16,7 @@ interface HistorizeTag {
   tagName: string;
   unit: string | null;
   createdAt: string;
+  enabled: boolean;
 }
 
 interface ConnectionOption {
@@ -42,7 +44,10 @@ export const TeveHistorizeTags: React.FC = () => {
   const [tagName, setTagName] = useState('');
   const [unit, setUnit] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
-  const { success, error: toastError } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { success, error: toastError, warning } = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -129,6 +134,73 @@ export const TeveHistorizeTags: React.FC = () => {
     persistTag(selectedNodeId, displayName);
   }, [persistTag]);
 
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch('/api/teve-tag-config/export', { headers: authHeaders() });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      const match = disposition ? /filename="(.+)"/.exec(disposition) : null;
+      const filename = match?.[1] || 'teve-tags.json';
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      success('Export ready', `Downloaded ${filename}.`);
+    } catch {
+      toastError('Export failed', 'Could not export tags.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [success, toastError]);
+
+  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      toastError('Invalid file', 'Please select a .json file exported from this page.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toastError('File too large', 'Import files must be 10MB or smaller.');
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const fileContent = await file.text();
+      const res = await fetch('/api/teve-tag-config/import', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileContent })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json();
+      setTags(result.tags ?? []);
+      if (result.imported > 0) {
+        success('Tags imported', `${result.imported} tag${result.imported === 1 ? '' : 's'} imported.`);
+      }
+      if (result.warnings?.length) {
+        warning('Some tags skipped', result.warnings.slice(0, 3).join(' '));
+      }
+      if (result.errors?.length) {
+        toastError('Some rows had errors', result.errors.slice(0, 3).join(' '));
+      }
+      if (!result.imported && !result.warnings?.length && !result.errors?.length) {
+        toastError('Nothing imported', 'The file contained no tags.');
+      }
+    } catch {
+      toastError('Import failed', 'Could not import tags — check the file is a valid TEVE tag export.');
+    } finally {
+      setIsImporting(false);
+    }
+  }, [success, warning, toastError]);
+
   const handleRemove = useCallback(async (tag: HistorizeTag) => {
     try {
       const query = tag.connectionId ? `?connectionId=${encodeURIComponent(tag.connectionId)}` : '';
@@ -143,18 +215,55 @@ export const TeveHistorizeTags: React.FC = () => {
     }
   }, [toastError]);
 
+  const handleToggleEnabled = useCallback(async (tag: HistorizeTag) => {
+    const nextEnabled = !tag.enabled;
+    setTags((prev) => prev.map((t) => (t === tag ? { ...t, enabled: nextEnabled } : t)));
+    try {
+      const query = tag.connectionId ? `?connectionId=${encodeURIComponent(tag.connectionId)}` : '';
+      const res = await fetch(`/api/teve-tag-config/${encodeURIComponent(tag.nodeId)}${query}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setTags(await res.json());
+    } catch {
+      setTags((prev) => prev.map((t) => (t === tag ? { ...t, enabled: tag.enabled } : t)));
+      toastError('Update failed', `Could not ${nextEnabled ? 'enable' : 'disable'} ${tag.tagName}.`);
+    }
+  }, [toastError]);
+
   const selectedConnection = connections.find((c) => c.id === connectionId);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-      <div className="flex items-start gap-3">
-        <ListTree className="h-5 w-5 text-gray-400 mt-0.5" />
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Tags to Historize</h3>
-          <p className="text-xs text-gray-500 mt-1">
-            OPC UA tags continuously written into TEVE. Changes take effect on the next OPC UA
-            reconnect (or you can trigger a refresh from the OPC UA connection settings).
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <ListTree className="h-5 w-5 text-gray-400 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Tags to Historize</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              OPC UA tags continuously written into TEVE. Changes take effect on the next OPC UA
+              reconnect (or you can trigger a refresh from the OPC UA connection settings).
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button type="button" variant="outline" size="sm" onClick={handleExport} loading={isExporting}>
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Export
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} loading={isImporting}>
+            <Upload className="h-3.5 w-3.5 mr-1.5" />
+            Import
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
         </div>
       </div>
 
@@ -225,7 +334,7 @@ export const TeveHistorizeTags: React.FC = () => {
       ) : (
         <div className="space-y-1.5">
           {tags.map((t) => (
-            <div key={`${t.connectionId ?? ''}:${t.nodeId}`} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
+            <div key={`${t.connectionId ?? ''}:${t.nodeId}`} className={cn('flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md', !t.enabled && 'opacity-60')}>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900">{t.tagName}</p>
                 <p className="text-xs font-mono text-gray-500 truncate">
@@ -235,14 +344,28 @@ export const TeveHistorizeTags: React.FC = () => {
                   {t.nodeId}{t.unit ? ` · ${t.unit}` : ''}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => handleRemove(t)}
-                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md shrink-0 ml-3"
-                aria-label={`Remove ${t.tagName}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <button
+                  type="button"
+                  onClick={() => handleToggleEnabled(t)}
+                  className={cn(
+                    'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1',
+                    t.enabled ? 'bg-primary-600' : 'bg-gray-300'
+                  )}
+                  title={t.enabled ? 'Disable data collection for this tag' : 'Enable data collection for this tag'}
+                  aria-label={`${t.enabled ? 'Disable' : 'Enable'} ${t.tagName}`}
+                >
+                  <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white transition-transform', t.enabled ? 'translate-x-4' : 'translate-x-0.5')} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(t)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                  aria-label={`Remove ${t.tagName}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

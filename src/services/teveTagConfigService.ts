@@ -11,6 +11,8 @@ export interface TeveHistorizeTag {
   tagName: string;
   unit: string | null;
   createdAt: string;
+  /** Data collection is skipped for this tag when false; defaults to true. */
+  enabled: boolean;
 }
 
 // The composite primary key can't contain NULL, so unqualified legacy rows
@@ -48,6 +50,12 @@ function openDb(): Database.Database {
     `);
     db.exec('DROP TABLE teve_historize_tags');
   }
+
+  const columns = db.pragma('table_info(teve_historize_tags_v2)') as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === 'enabled')) {
+    db.exec('ALTER TABLE teve_historize_tags_v2 ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
+  }
+
   return db;
 }
 
@@ -66,7 +74,7 @@ class TeveTagConfigService {
 
   list(): TeveHistorizeTag[] {
     const rows = this.db.prepare(
-      'SELECT connection_id, node_id, tag_name, unit, created_at FROM teve_historize_tags_v2 ORDER BY created_at'
+      'SELECT connection_id, node_id, tag_name, unit, created_at, enabled FROM teve_historize_tags_v2 ORDER BY created_at'
     ).all() as any[];
     return rows.map((r) => ({
       nodeId: r.node_id,
@@ -74,7 +82,14 @@ class TeveTagConfigService {
       tagName: r.tag_name,
       unit: r.unit,
       createdAt: r.created_at,
+      enabled: !!r.enabled,
     }));
+  }
+
+  setEnabled(nodeId: string, connectionId: string | null, enabled: boolean): void {
+    this.db.prepare(
+      'UPDATE teve_historize_tags_v2 SET enabled = ? WHERE connection_id = ? AND node_id = ?'
+    ).run(enabled ? 1 : 0, connectionId ?? NO_CONNECTION, nodeId);
   }
 
   add(nodeId: string, tagName: string, unit?: string | null, connectionId?: string | null): void {

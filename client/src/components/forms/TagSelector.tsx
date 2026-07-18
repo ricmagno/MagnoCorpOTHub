@@ -506,6 +506,12 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
             <div className="flex flex-wrap gap-2">
               {selectedTags.map((tagName) => {
                 const isOpcua = tagName.startsWith('opcua:');
+                const isTensor = tagName.startsWith('tensor:');
+                const displayName = isOpcua
+                  ? tagName.replace('opcua:', 'OPC: ')
+                  : isTensor
+                  ? tagName.replace('tensor:', 'TEVE: ')
+                  : tagName;
                 return (
                   <div
                     key={tagName}
@@ -513,10 +519,12 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
                       'inline-flex items-center px-3 py-1 rounded-full text-sm border',
                       isOpcua
                         ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : isTensor
+                        ? 'bg-purple-100 text-purple-800 border-purple-200'
                         : 'bg-primary-100 text-primary-800 border-primary-200'
                     )}
                   >
-                    <span className="mr-2">{isOpcua ? tagName.replace('opcua:', 'OPC: ') : tagName}</span>
+                    <span className="mr-2">{displayName}</span>
                     <button
                       onClick={() => handleRemoveTag(tagName)}
                       className="ml-1 hover:text-gray-900 focus:outline-none"

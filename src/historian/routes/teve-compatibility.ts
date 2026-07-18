@@ -16,7 +16,7 @@ export function createTeveRouter(db: Pool): Router {
   });
 
   router.get('/teve/data', async (req, res) => {
-    const { tag, from, to, interval } = req.query as Record<string, string>;
+    const { tag, from, to, interval, limit } = req.query as Record<string, string>;
     if (!tag || !from || !to) {
       res.status(400).json({ error: 'required: tag, from, to' });
       return;
@@ -28,6 +28,19 @@ export function createTeveRouter(db: Pool): Router {
     }
     const systemId = tag.slice(0, dot);
     const tagName = tag.slice(dot + 1);
+
+    // Optional cap on rows, e.g. limit=1 for a "latest value only" live-widget
+    // fetch instead of the caller pulling the whole time range every poll.
+    // Both branches already ORDER BY ... DESC, so LIMIT gives the N most recent points.
+    let limitClause = '';
+    if (limit !== undefined) {
+      const parsedLimit = parseInt(limit, 10);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 10_000) {
+        res.status(400).json({ error: 'limit must be an integer between 1 and 10000' });
+        return;
+      }
+      limitClause = `LIMIT ${parsedLimit}`;
+    }
 
     try {
       let rows;
@@ -41,7 +54,7 @@ export function createTeveRouter(db: Pool): Router {
                  AVG(tag_value) AS "Value", 'Good' AS "Status", 0 AS "Milliseconds"
           FROM historian.metrics
           WHERE scada_system_id = $1 AND tag_name = $2 AND time BETWEEN $3 AND $4
-          GROUP BY 1 ORDER BY 1 DESC`;
+          GROUP BY 1 ORDER BY 1 DESC ${limitClause}`;
         rows = (await db.query(q, [systemId, tagName, from, to])).rows;
       } else {
         const q = `
@@ -49,7 +62,7 @@ export function createTeveRouter(db: Pool): Router {
                  tag_status AS "Status", 0 AS "Milliseconds"
           FROM historian.metrics
           WHERE scada_system_id = $1 AND tag_name = $2 AND time BETWEEN $3 AND $4
-          ORDER BY time DESC`;
+          ORDER BY time DESC ${limitClause}`;
         rows = (await db.query(q, [systemId, tagName, from, to])).rows;
       }
       res.json({ tag, count: rows.length, data: rows });
