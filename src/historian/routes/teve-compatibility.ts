@@ -81,6 +81,113 @@ export function createTeveRouter(db: Pool): Router {
   });
 
   /**
+   * Export all metrics as JSONL (one metric per line) for backup/migration.
+   * Supports filtering by date range via ?from and ?to query params (ISO 8601).
+   * Useful for:
+   * - Creating manual backups (alternative to pg_dump)
+   * - Migrating data to another TEVE instance
+   * - Archiving old data to external storage
+   * - Data analysis and audit trails
+   */
+  router.get('/teve/export', async (req, res) => {
+    const { from, to, format } = req.query as Record<string, string>;
+    const outputFormat = (format || 'jsonl').toLowerCase();
+
+    if (!['jsonl', 'csv'].includes(outputFormat)) {
+      res.status(400).json({ error: 'format must be "jsonl" or "csv"' });
+      return;
+    }
+
+    try {
+      // Build WHERE clause for date range filter (optional)
+      let whereClause = '';
+      const params: any[] = [];
+      if (from || to) {
+        const conditions: string[] = [];
+        if (from) {
+          conditions.push(`time >= $${params.length + 1}`);
+          params.push(from);
+        }
+        if (to) {
+          conditions.push(`time <= $${params.length + 1}`);
+          params.push(to);
+        }
+        if (conditions.length > 0) {
+          whereClause = ' WHERE ' + conditions.join(' AND ');
+        }
+      }
+
+      // Set response headers for file download
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `teve-export-${timestamp}.${outputFormat}`;
+      res.setHeader('Content-Type', outputFormat === 'jsonl' ? 'application/x-ndjson' : 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Transfer-Encoding', 'chunked');
+
+      // Stream results to avoid loading entire dataset into memory
+      if (outputFormat === 'jsonl') {
+        // JSONL format: one JSON object per line
+        const cursor = await db.query(
+          `SELECT scada_system_id, tag_name, time, tag_value, tag_status, tag_unit
+           FROM historian.metrics ${whereClause}
+           ORDER BY time ASC`,
+          params
+        );
+
+        let count = 0;
+        for (const row of cursor.rows) {
+          const json = JSON.stringify({
+            scada_system_id: row.scada_system_id,
+            tag_name: row.tag_name,
+            time: row.time,
+            tag_value: row.tag_value,
+            tag_status: row.tag_status,
+            tag_unit: row.tag_unit,
+          });
+          res.write(json + '\n');
+          count++;
+        }
+        res.end(`# Exported ${count} metrics\n`);
+      } else {
+        // CSV format: header row + data rows
+        res.write('scada_system_id,tag_name,time,tag_value,tag_status,tag_unit\n');
+
+        const cursor = await db.query(
+          `SELECT scada_system_id, tag_name, time, tag_value, tag_status, tag_unit
+           FROM historian.metrics ${whereClause}
+           ORDER BY time ASC`,
+          params
+        );
+
+        let count = 0;
+        for (const row of cursor.rows) {
+          const csvRow = [
+            row.scada_system_id,
+            row.tag_name,
+            row.time.toISOString(),
+            row.tag_value ?? '',
+            row.tag_status,
+            row.tag_unit ?? '',
+          ]
+            .map((v) => {
+              const s = String(v);
+              // Escape CSV values that contain commas, quotes, or newlines
+              return s.includes(',') || s.includes('"') || s.includes('\n')
+                ? `"${s.replace(/"/g, '""')}"`
+                : s;
+            })
+            .join(',');
+          res.write(csvRow + '\n');
+          count++;
+        }
+        res.end();
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: String(err?.message ?? err) });
+    }
+  });
+
+  /**
    * Batch metric ingest — lets TEVE be used as a genuine alternative (or
    * parallel) historian, not just a read-side search layer: an external collector
    * (e.g. the main app's teveIngestService, subscribed to OPC UA tags)
