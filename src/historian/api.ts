@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import { Pool } from 'pg';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
@@ -13,6 +14,7 @@ import { TeveEngine } from './teve/engine';
 import { createEmbeddingRouter } from './routes/embedding-routes';
 import { createTeveRouter } from './routes/teve-compatibility';
 import { createTeveSearchRouter } from './routes/teve-search';
+import { createAdminDashboardRouter } from './routes/admin-dashboard';
 import { typeDefs } from './graphql/schema';
 import { makeResolvers } from './graphql/resolvers';
 
@@ -40,9 +42,17 @@ async function main() {
   const app = express();
   app.use(express.json());
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+  // Serve dashboard UI (static files)
+  const publicDir = path.join(__dirname, 'public');
+  app.use(express.static(publicDir));
+  app.get('/dashboard', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'dashboard.html'));
+  });
   app.use('/api/historian', createEmbeddingRouter(db, embedder, capture));
   app.use('/api', createTeveRouter(db));
   app.use('/api', createTeveSearchRouter(db, engine, windows, anomalyEmbeddings));
+  app.use('/api', createAdminDashboardRouter(db));
 
   const apollo = new ApolloServer({
     schema: makeExecutableSchema({

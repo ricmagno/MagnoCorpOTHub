@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TEVE Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header h1 { font-size: 28px; margin-bottom: 8px; color: #333; }
+    .header p { color: #666; font-size: 14px; }
+    .status-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+    .status-badge.healthy { background: #d4edda; color: #155724; }
+    .status-badge.unhealthy { background: #f8d7da; color: #721c24; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: #333;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 12px;
+    }
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .config-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .config-item:last-child { border-bottom: none; }
+    .config-label { font-weight: 600; color: #555; }
+    .config-value { color: #666; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button.primary {
+      background: #667eea;
+      color: white;
+    }
+    button.primary:hover { background: #5568d3; }
+    button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    button.secondary:hover { background: #e0e0e0; }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    .success {
+      background: #efe;
+      color: #3c3;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    .loader {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .footer {
+      text-align: center;
+      color: white;
+      font-size: 12px;
+      margin-top: 40px;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .metric {
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #667eea;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧠 TEVE Dashboard</h1>
+      <p>Tensor Embedding Vector Engine Configuration & Status</p>
+      <div id="statusContainer"></div>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Service Status</h2>
+        <div class="card-content">
+          <div id="statusContent" style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Database</h2>
+        <div class="card-content" id="dbConfig">
+          <div style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Embedding Model</h2>
+        <div class="card-content" id="embeddingConfig">
+          <div style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Storage (S3/MinIO)</h2>
+        <div class="card-content" id="s3Config">
+          <div style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Redis Queue</h2>
+        <div class="card-content" id="redisConfig">
+          <div style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Worker</h2>
+        <div class="card-content" id="workerConfig">
+          <div style="text-align: center; padding: 20px;">
+            <div class="loader"></div> Loading...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Database Statistics</h2>
+      <div class="metrics-grid" id="metricsGrid">
+        <div style="text-align: center; padding: 20px; grid-column: 1/-1;">
+          <div class="loader"></div> Loading...
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Actions</h2>
+      <div class="button-group">
+        <button class="secondary" onclick="fetchConfig()">🔄 Refresh</button>
+        <button class="primary" onclick="clearCache()" id="clearCacheBtn">🗑️ Clear Cache</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      TEVE v1.0.0 • <span id="timestamp"></span>
+    </div>
+  </div>
+
+  <script>
+    const API_TOKEN = localStorage.getItem('teveAdminToken') || prompt('Enter admin token:');
+    if (API_TOKEN) {
+      localStorage.setItem('teveAdminToken', API_TOKEN);
+    }
+
+    const headers = {
+      'Authorization': `Bearer ${API_TOKEN || ''}`,
+      'Content-Type': 'application/json'
+    };
+
+    async function fetchConfig() {
+      try {
+        document.getElementById('message').innerHTML = '';
+        const [configResp, statusResp] = await Promise.all([
+          fetch('/api/admin/config', { headers }),
+          fetch('/api/admin/status', { headers })
+        ]);
+
+        if (configResp.status === 401) {
+          document.getElementById('message').innerHTML = '<div class="error">❌ Unauthorized: invalid token</div>';
+          localStorage.removeItem('teveAdminToken');
+          return;
+        }
+
+        const config = await configResp.json();
+        const status = await statusResp.json();
+
+        renderConfig(config, status);
+        updateTimestamp();
+      } catch (err) {
+        document.getElementById('message').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+      }
+    }
+
+    function renderConfig(config, status) {
+      // Status
+      const isHealthy = status.database?.metrics_count !== undefined;
+      document.getElementById('statusContent').innerHTML = `
+        <div style="text-align: center;">
+          <div class="status-badge ${isHealthy ? 'healthy' : 'unhealthy'}">
+            ${isHealthy ? '✅ Healthy' : '⚠️ Degraded'}
+          </div>
+          <div style="margin-top: 12px; font-size: 12px; color: #999;">
+            Uptime: ${formatUptime(status.uptime)}
+          </div>
+        </div>
+      `;
+
+      // Database
+      document.getElementById('dbConfig').innerHTML = `
+        <div class="config-item">
+          <span class="config-label">Status</span>
+          <span class="config-value">${config.database.isConnected ? '✅ Connected' : '❌ Disconnected'}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Endpoint</span>
+          <span class="config-value" title="${config.database.url}">${config.database.url.substring(0, 30)}...</span>
+        </div>
+      `;
+
+      // Metrics
+      const metricsHtml = `
+        <div class="metric">
+          <div class="metric-value">${formatNumber(status.database?.metrics_count || 0)}</div>
+          <div class="metric-label">Total Metrics</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${status.database?.unique_tags || 0}</div>
+          <div class="metric-label">Unique Tags</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${status.database?.oldest_metric ? 'Yes' : 'No'}</div>
+          <div class="metric-label">Data Present</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${status.database?.newest_metric ? 'Now' : '-'}</div>
+          <div class="metric-label">Latest Update</div>
+        </div>
+      `;
+      document.getElementById('metricsGrid').innerHTML = metricsHtml;
+
+      // Embedding
+      document.getElementById('embeddingConfig').innerHTML = `
+        <div class="config-item">
+          <span class="config-label">Model</span>
+          <span class="config-value">${config.embedding.model}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Dimension</span>
+          <span class="config-value">${config.embedding.dimension}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Remote Models</span>
+          <span class="config-value">${config.embedding.allowRemoteModels ? 'Allowed' : 'Blocked'}</span>
+        </div>
+      `;
+
+      // S3
+      document.getElementById('s3Config').innerHTML = `
+        <div class="config-item">
+          <span class="config-label">Endpoint</span>
+          <span class="config-value">${config.s3.endpoint}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Bucket</span>
+          <span class="config-value">${config.s3.bucket}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Region</span>
+          <span class="config-value">${config.s3.region}</span>
+        </div>
+      `;
+
+      // Redis
+      document.getElementById('redisConfig').innerHTML = `
+        <div class="config-item">
+          <span class="config-label">URL</span>
+          <span class="config-value">${config.redis.url.substring(0, 25)}...</span>
+        </div>
+      `;
+
+      // Worker
+      document.getElementById('workerConfig').innerHTML = `
+        <div class="config-item">
+          <span class="config-label">Concurrency</span>
+          <span class="config-value">${config.worker.concurrency}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Health Port</span>
+          <span class="config-value">:${config.worker.healthPort}</span>
+        </div>
+      `;
+    }
+
+    async function clearCache() {
+      const btn = document.getElementById('clearCacheBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Clearing...';
+      try {
+        const resp = await fetch('/api/admin/clear-cache', {
+          method: 'POST',
+          headers
+        });
+        if (resp.ok) {
+          document.getElementById('message').innerHTML = '<div class="success">✅ Cache clear signaled</div>';
+        } else {
+          document.getElementById('message').innerHTML = '<div class="error">❌ Failed to clear cache</div>';
+        }
+      } catch (err) {
+        document.getElementById('message').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🗑️ Clear Cache';
+      }
+    }
+
+    function formatUptime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+
+    function formatNumber(num) {
+      return num.toLocaleString();
+    }
+
+    function updateTimestamp() {
+      document.getElementById('timestamp').textContent = new Date().toLocaleString();
+    }
+
+    // Initial load
+    fetchConfig();
+    setInterval(fetchConfig, 30000); // Refresh every 30 seconds
+  </script>
+</body>
+</html>
