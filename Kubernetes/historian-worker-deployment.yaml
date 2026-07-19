@@ -2,6 +2,13 @@
 # build time, no runtime internet egress — see Dockerfile.historian model-warmup stage).
 # Concurrency 4 per worker; scale by adding replicas, not by raising HISTORIAN_WORKER_CONCURRENCY
 # (embedding is CPU-bound in-process — see src/historian/workers/embedding-queue.ts).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-worker
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,11 +26,15 @@ spec:
       labels:
         app: historian-worker
     spec:
+      serviceAccountName: historian-worker
+      automountServiceAccountToken: false
       imagePullSecrets:
         - name: ghcr-regcred
       containers:
         - name: historian-worker
-          image: ghcr.io/ricmagno/magnocorpothub-historian-worker:latest
+          # Pinned to a real release tag rather than :latest — bump this on each release,
+          # matching the convention in magnocorp-othub-deployment.yaml.
+          image: ghcr.io/ricmagno/magnocorpothub-historian-worker:v1.3.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3101
@@ -46,6 +57,14 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001 # matches `useradd -u 1001 ... historian` in Dockerfile.historian
+            seccompProfile:
+              type: RuntimeDefault
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp # object-store.ts downloadToTemp() writes here before embedding
           readinessProbe:
             httpGet:
               path: /health
@@ -58,6 +77,9 @@ spec:
               port: 3101
             initialDelaySeconds: 30
             periodSeconds: 20
+      volumes:
+        - name: tmp
+          emptyDir: {}
       tolerations:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"

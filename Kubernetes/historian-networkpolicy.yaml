@@ -33,3 +33,63 @@ spec:
           port: 9000
         - protocol: TCP
           port: 9001
+---
+# historian-api/historian-worker previously had NO ingress restriction at all — any pod anywhere the
+# CNI allows could reach port 3100/3101 directly, bypassing the Ingress (historian-ingress.yaml) and
+# its JWT-authenticated routes entirely. Restricts them to: the main app (which calls in
+# server-to-server via src/routes/teveProxy.ts) and the ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: historian-compute-tier-policy
+  namespace: magnocorp-othub
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["historian-api", "historian-worker"]
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: magnocorp-othub
+        # ADJUST TO YOUR CLUSTER: this namespaceSelector must match wherever your Traefik ingress
+        # controller actually runs (commonly kube-system or a dedicated traefik/ingress namespace).
+        # It cannot be discovered from this repo — verify with `kubectl get pods -A -l app.kubernetes.io/name=traefik`
+        # (or your controller's equivalent label) against the target cluster before relying on this.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 3101
+  egress:
+    # DNS — required for any Service-name resolution (postgres/redis/minio below, plus internal calls).
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["historian-postgres", "historian-redis", "historian-minio"]
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 9000
+    # No other egress is needed: HISTORIAN_ALLOW_REMOTE_MODELS=false and the CLIP model is baked into
+    # the image at build time (Dockerfile.historian model-warmup stage) — no runtime internet egress
+    # for embedding. If OPC UA/PLC connectivity or other outbound integrations are ever added here,
+    # this policy will need an explicit allow for that traffic.

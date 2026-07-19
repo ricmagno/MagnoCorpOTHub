@@ -1,5 +1,12 @@
 # Dedicated Redis for the Bull embedding queue — separate from the app's own cache
 # Redis (magnocorp-othub-cache) so job-queue traffic never competes with report caching.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-redis
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,10 +26,33 @@ spec:
       labels:
         app: historian-redis
     spec:
+      serviceAccountName: historian-redis
+      automountServiceAccountToken: false
+      # Same fix as historian-postgres-deployment.yaml's initContainer: hostPath volumes created
+      # fresh by kubelet are root:root, and redis:7-alpine's baked-in `redis` user (uid 999, gid 1000)
+      # can't write there once runAsNonRoot/runAsUser forces the main container off root. Confirmed
+      # live: without this, redis crash-loops with "Can't open the append-only file ...: Permission denied".
+      initContainers:
+        - name: fix-data-dir-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 999:1000 /data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: historian-redis-data
+              mountPath: /data
       containers:
         - name: redis
           image: redis:7-alpine
-          command: ["redis-server", "--appendonly", "yes"]
+          # Auth required — this queue previously accepted unauthenticated connections from any pod
+          # that could reach port 6379; NetworkPolicy is defense-in-depth, not the only control.
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: historian-env
+                  key: REDIS_PASSWORD
+          command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$REDIS_PASSWORD\""]
           ports:
             - containerPort: 6379
           resources:
@@ -32,14 +62,21 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 999 # redis:7-alpine's baked-in `redis` user (image itself runs as root by
+            runAsGroup: 1000 # default — confirmed via `docker run --rm redis:7-alpine id redis`)
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping"]
             initialDelaySeconds: 10
             periodSeconds: 20
           volumeMounts:

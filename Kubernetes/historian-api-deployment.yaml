@@ -1,5 +1,12 @@
 # API pods: no CLIP model loaded (see historian-worker-deployment.yaml for that).
 # Still needs Chromium (Puppeteer) for the synchronous POST /screenshots capture step.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-api
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,11 +24,15 @@ spec:
       labels:
         app: historian-api
     spec:
+      serviceAccountName: historian-api
+      automountServiceAccountToken: false
       imagePullSecrets:
         - name: ghcr-regcred
       containers:
         - name: historian-api
-          image: ghcr.io/ricmagno/magnocorpothub-historian-api:latest
+          # Pinned to a real release tag rather than :latest — bump this on each release,
+          # matching the convention in magnocorp-othub-deployment.yaml.
+          image: ghcr.io/ricmagno/magnocorpothub-historian-api:v1.3.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3100
@@ -42,6 +53,14 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001 # matches `useradd -u 1001 ... historian` in Dockerfile.historian
+            seccompProfile:
+              type: RuntimeDefault
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp # Puppeteer's Chromium profile + object-store.ts downloadToTemp() both write here
           readinessProbe:
             httpGet:
               path: /health
@@ -54,6 +73,9 @@ spec:
               port: 3100
             initialDelaySeconds: 20
             periodSeconds: 20
+      volumes:
+        - name: tmp
+          emptyDir: {}
       tolerations:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"

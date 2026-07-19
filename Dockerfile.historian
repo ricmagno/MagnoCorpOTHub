@@ -4,8 +4,11 @@
 # Build with: docker build -f Dockerfile.historian --target production-api  -t historian-api .
 #             docker build -f Dockerfile.historian --target production-worker -t historian-worker .
 # ==========================================
+# Base image is digest-pinned (not just tag-pinned) for reproducible/verifiable builds; re-resolve
+# via `docker pull node:20-bookworm-slim && docker inspect --format='{{index .RepoDigests 0}}' node:20-bookworm-slim`
+# when intentionally bumping.
 
-FROM node:20-bookworm-slim AS base
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS base
 
 # Chromium runtime deps (Puppeteer) + canvas/sharp build deps
 RUN apt-get update && apt-get install -y \
@@ -24,7 +27,7 @@ WORKDIR /app
 FROM base AS builder
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package*.json ./
-RUN for i in 1 2 3 4 5; do npm install --legacy-peer-deps && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+RUN for i in 1 2 3 4 5; do npm ci --legacy-peer-deps && exit 0; echo "npm ci failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
@@ -32,15 +35,21 @@ RUN npm run build
 
 # --- Stage 2a: production deps for the API image (needs Puppeteer's Chromium for capture) ---
 FROM base AS prod-deps-api
+# Without this, `npm ci` downloads Chrome to the default $HOME/.cache/puppeteer (root's home in this
+# stage) — a path production-api's COPY --from=prod-deps-api never reaches (it only copies
+# node_modules), so the final image silently shipped with zero Chrome binary and capture failed at
+# runtime with "Could not find Chrome". Pointing the cache under /app makes it part of what gets
+# copied forward (see the COPY --from=prod-deps-api /app/.cache line below).
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 COPY package*.json ./
-RUN for i in 1 2 3 4 5; do npm install --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+RUN for i in 1 2 3 4 5; do npm ci --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm ci failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
 
 # --- Stage 2b: production deps for the worker image — never launches a browser,
 #     so skip the Chromium download entirely (smaller image, one less network dependency). ---
 FROM base AS prod-deps-worker
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package*.json ./
-RUN for i in 1 2 3 4 5; do npm install --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm install failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
+RUN for i in 1 2 3 4 5; do npm ci --omit=dev --legacy-peer-deps && npm cache clean --force && exit 0; echo "npm ci failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
 
 # --- Stage 3: pre-download the CLIP model so worker pods need no runtime internet
 #     egress — required for air-gapped plant-network deployments. Build machines have
@@ -51,7 +60,7 @@ RUN npm run historian:warmup-model
 
 # --- Stage 4a: API image — needs Chromium for capture AND the model cache for
 #     /teve/search (CLIP text encoder, loaded lazily on first search) ---
-FROM node:20-bookworm-slim AS production-api
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS production-api
 RUN apt-get update && apt-get install -y \
     ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 \
     libatspi2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
@@ -61,6 +70,7 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m historian
 WORKDIR /app
 COPY --from=prod-deps-api --chown=historian:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps-api --chown=historian:nodejs /app/.cache ./.cache
 COPY --from=builder --chown=historian:nodejs /app/dist ./dist
 COPY --from=builder --chown=historian:nodejs /app/package.json ./package.json
 COPY --from=model-warmup --chown=historian:nodejs /app/.model-cache ./.model-cache
@@ -68,14 +78,15 @@ USER historian
 ENV NODE_ENV=production \
     HISTORIAN_PORT=3100 \
     HISTORIAN_MODEL_CACHE_DIR=/app/.model-cache \
-    HISTORIAN_ALLOW_REMOTE_MODELS=false
+    HISTORIAN_ALLOW_REMOTE_MODELS=false \
+    PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:3100/health || exit 1
 CMD ["node", "dist/historian/api.js"]
 
 # --- Stage 4b: worker image — CLIP model baked in, no Chromium needed ---
-FROM node:20-bookworm-slim AS production-worker
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS production-worker
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs -s /bin/sh -m historian
 WORKDIR /app

@@ -34,6 +34,41 @@ spec:
                 name: historian-api
                 port:
                   number: 3100
+---
+# /graphql split into its own Ingress (rather than a path entry above) so the rate-limit Middleware
+# below applies only here — a plain networking.k8s.io/v1 Ingress + router.middlewares annotation
+# scopes to the whole Ingress resource, not to individual paths within one. GraphQL is singled out
+# because introspection/nested-query complexity make it the most DoS-exposed endpoint at the edge;
+# /api/historian and /api/teve are comparatively bounded REST calls.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: historian-graphql-ratelimit
+  namespace: magnocorp-othub
+spec:
+  rateLimit:
+    average: 20
+    burst: 40
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: historian-graphql-ingress
+  namespace: magnocorp-othub
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: magnocorp-othub-historian-graphql-ratelimit@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - reports.kagome.com.au
+      secretName: kagome-reports-tls
+  rules:
+    - host: reports.kagome.com.au
+      http:
+        paths:
           - path: /graphql
             pathType: Prefix
             backend:
