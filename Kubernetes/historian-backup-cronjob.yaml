@@ -28,15 +28,55 @@ spec:
           serviceAccountName: historian-backup
           automountServiceAccountToken: false
           restartPolicy: OnFailure
-          containers:
-            - name: backup
+          # pg_dump (postgres image) and mc (minio/mc image) live in different images, so the
+          # dump runs as an initContainer that writes into a shared emptyDir, and the main
+          # container uploads it. initContainers complete before the main container starts and
+          # share pod volumes, so ordering and hand-off are guaranteed.
+          initContainers:
+            - name: dump
               image: postgres:16-bookworm
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
               env:
                 - name: PGPASSWORD
                   valueFrom:
                     secretKeyRef:
                       name: historian-env
                       key: POSTGRES_PASSWORD
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+                  echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Starting TEVE Postgres dump..."
+                  # Fixed local name; the timestamped remote object name is chosen at upload time.
+                  pg_dump -h historian-postgres -U historian -d historian_db --no-password \
+                    --format=plain --compress=9 --no-privileges --no-owner \
+                    > /backup/dump.sql.gz
+                  if [ ! -s /backup/dump.sql.gz ]; then
+                    echo "ERROR: dump is empty!" >&2
+                    exit 1
+                  fi
+                  echo "Dump size: $(du -h /backup/dump.sql.gz | cut -f1)"
+              volumeMounts:
+                - name: backup-tmp
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: minio/mc:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              env:
+                # $HOME must be writable for mc's config dir (image's /root is not writable
+                # once capabilities are dropped) — same fix as the minio-init job.
+                - name: HOME
+                  value: /tmp
                 # Real MinIO credentials from the secret (the same root creds the MinIO
                 # deployment uses) — not a hardcoded "minioadmin" default, and not an
                 # optional ref that silently resolves to an empty secret.
@@ -51,51 +91,25 @@ spec:
                       name: historian-env
                       key: MINIO_ROOT_PASSWORD
               command:
-                - /bin/bash
+                - /bin/sh
                 - -c
                 - |
-                  set -e
+                  set -eu
                   BACKUP_FILE="historian-backup-$(date -u +%Y%m%d-%H%M%S).sql.gz"
-                  BACKUP_SIZE_MAX_GB=10
-
-                  echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Starting TEVE Postgres backup..."
-                  echo "Backup file: $BACKUP_FILE"
-
-                  # Dump the historian database, compress with gzip
-                  pg_dump -h historian-postgres -U historian -d historian_db --no-password \
-                    --format=plain --compress=9 --no-privileges --no-owner \
-                    > /tmp/$BACKUP_FILE
-
-                  BACKUP_SIZE=$(du -h /tmp/$BACKUP_FILE | cut -f1)
-                  echo "Backup size: $BACKUP_SIZE"
-
-                  # Verify the backup file exists and is not empty
-                  if [ ! -s /tmp/$BACKUP_FILE ]; then
-                    echo "ERROR: Backup file is empty!"
-                    exit 1
-                  fi
-
-                  # Upload to MinIO using mc (minio client). Credentials are passed via
-                  # the MC_HOST_<alias> env var (read automatically by mc) rather than as
-                  # `mc alias set` arguments, so the secret never appears in the process
-                  # argument list (visible via /proc or `ps`).
-                  echo "Uploading to MinIO bucket..."
+                  echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Uploading $BACKUP_FILE to MinIO..."
+                  # Credentials via MC_HOST_<alias> env (read automatically by mc) rather than
+                  # `mc alias set` arguments, so the secret never appears in the process argument
+                  # list (visible via /proc or `ps`).
                   export MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@historian-minio:9000"
                   mc mb --ignore-existing minio/historian-backups
-                  mc cp /tmp/$BACKUP_FILE minio/historian-backups/
-
-                  # Verify upload
-                  REMOTE_SIZE=$(mc du minio/historian-backups/$BACKUP_FILE | awk '{print $1}')
-                  echo "Uploaded successfully. Remote size: $REMOTE_SIZE"
-
-                  # List recent backups (keep last 10 for manual reference)
-                  echo "Recent backups in MinIO:"
+                  mc cp /backup/dump.sql.gz "minio/historian-backups/${BACKUP_FILE}"
+                  echo "Uploaded. Remote size: $(mc du "minio/historian-backups/${BACKUP_FILE}" | awk '{print $1}')"
+                  echo "Recent backups:"
                   mc ls minio/historian-backups/ | tail -10
-
-                  # Clean up local file
-                  rm -f /tmp/$BACKUP_FILE
-
                   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Backup completed successfully"
+              volumeMounts:
+                - name: backup-tmp
+                  mountPath: /backup
               resources:
                 requests:
                   cpu: 100m
@@ -103,6 +117,9 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 1Gi
+          volumes:
+            - name: backup-tmp
+              emptyDir: {}
 ---
 # Retention policy: delete backups older than 30 days (run daily at 2:30 AM UTC)
 apiVersion: batch/v1
@@ -127,7 +144,18 @@ spec:
           containers:
             - name: retention
               image: minio/mc:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
               env:
+                # $HOME must be writable for mc's config dir once capabilities are dropped
+                # (image's /root is not writable without CAP_DAC_OVERRIDE) — same fix as
+                # the minio-init job and the backup upload container.
+                - name: HOME
+                  value: /tmp
                 # Real MinIO credentials from the secret (see backup job above).
                 - name: MINIO_ROOT_USER
                   valueFrom:
@@ -140,10 +168,10 @@ spec:
                       name: historian-env
                       key: MINIO_ROOT_PASSWORD
               command:
-                - /bin/bash
+                - /bin/sh
                 - -c
                 - |
-                  set -e
+                  set -eu
                   RETENTION_DAYS=30
 
                   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Starting backup retention cleanup..."

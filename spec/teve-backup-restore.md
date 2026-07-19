@@ -68,8 +68,11 @@ kubectl get cronjobs -n magnocorp-othub | grep historian-backup
 # Check recent backup jobs
 kubectl get jobs -n magnocorp-othub | grep historian-postgres-backup
 
-# View backup job logs
+# View backup job logs. The job has two steps in separate containers: an initContainer
+# `dump` (pg_dump) and the main container `upload` (mc). `kubectl logs job/...` shows the
+# upload container by default — if the dump step failed, view it explicitly:
 kubectl logs -n magnocorp-othub job/historian-postgres-backup-1720310400 -f
+kubectl logs -n magnocorp-othub job/historian-postgres-backup-1720310400 -c dump
 
 # List backups in MinIO
 kubectl exec -n magnocorp-othub pod/historian-minio-xxxxx -- \
