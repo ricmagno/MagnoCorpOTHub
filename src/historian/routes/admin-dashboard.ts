@@ -1,20 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
 import config from '../config/index';
+import { requireAdminToken } from '../middleware/admin-auth';
 
-// Simple bearer token auth — in production, use JWT with proper key rotation.
-// Token must be passed as: Authorization: Bearer <HISTORIAN_ADMIN_TOKEN>
-const ADMIN_TOKEN = process.env.HISTORIAN_ADMIN_TOKEN || 'change-me-in-production';
-
-const authMiddleware = (req: Request, res: Response, next: Function) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-  if (token !== ADMIN_TOKEN) {
-    res.status(401).json({ error: 'Unauthorized: invalid or missing admin token' });
-    return;
-  }
-  next();
-};
+// Bearer-token auth for all admin endpoints. Fails closed when HISTORIAN_ADMIN_TOKEN
+// is unset and compares in constant time — see ../middleware/admin-auth.ts.
+const authMiddleware = requireAdminToken;
 
 export function createAdminDashboardRouter(db: Pool): Router {
   const router = Router();

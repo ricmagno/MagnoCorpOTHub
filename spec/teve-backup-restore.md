@@ -32,17 +32,21 @@ The automated backup system requires:
 
 #### Prerequisites
 
-Ensure `historian-env` secret has `MINIO_SECRET_KEY`:
+The backup jobs authenticate to MinIO with the same `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`
+already defined in the `historian-env` secret (the credentials the MinIO deployment itself uses) —
+no separate backup credential is needed. Confirm they are set to real, non-default values:
 
 ```bash
-kubectl get secret historian-env -n magnocorp-othub -o yaml | grep MINIO_SECRET_KEY
+kubectl get secret historian-env -n magnocorp-othub \
+  -o jsonpath='{.data.MINIO_ROOT_USER}' | base64 -d; echo
 ```
 
-If missing, add it:
+If this returns the placeholder `CHANGE_ME_MINIO_ACCESS_KEY` (or an empty value), set strong
+credentials before deploying the backup jobs — do **not** leave them as `minioadmin`:
 
 ```bash
-kubectl patch secret historian-env -n magnocorp-othub \
-  --type merge -p '{"data":{"MINIO_SECRET_KEY":"'$(echo -n 'minioadmin' | base64)'"}}'
+kubectl patch secret historian-env -n magnocorp-othub --type merge -p \
+  "{\"stringData\":{\"MINIO_ROOT_USER\":\"$(openssl rand -hex 12)\",\"MINIO_ROOT_PASSWORD\":\"$(openssl rand -hex 24)\"}}"
 ```
 
 #### Deploy the backup jobs

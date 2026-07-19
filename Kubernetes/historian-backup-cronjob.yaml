@@ -37,16 +37,19 @@ spec:
                     secretKeyRef:
                       name: historian-env
                       key: POSTGRES_PASSWORD
-                - name: MINIO_ACCESS_KEY
-                  value: "minioadmin"
-                - name: MINIO_SECRET_KEY
+                # Real MinIO credentials from the secret (the same root creds the MinIO
+                # deployment uses) — not a hardcoded "minioadmin" default, and not an
+                # optional ref that silently resolves to an empty secret.
+                - name: MINIO_ROOT_USER
                   valueFrom:
                     secretKeyRef:
                       name: historian-env
-                      key: MINIO_SECRET_KEY
-                      optional: true
-                - name: BACKUP_TIMESTAMP
-                  value: "$(date -u +%Y%m%d-%H%M%S)"
+                      key: MINIO_ROOT_USER
+                - name: MINIO_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: historian-env
+                      key: MINIO_ROOT_PASSWORD
               command:
                 - /bin/bash
                 - -c
@@ -72,9 +75,12 @@ spec:
                     exit 1
                   fi
 
-                  # Upload to MinIO using mc (minio client)
+                  # Upload to MinIO using mc (minio client). Credentials are passed via
+                  # the MC_HOST_<alias> env var (read automatically by mc) rather than as
+                  # `mc alias set` arguments, so the secret never appears in the process
+                  # argument list (visible via /proc or `ps`).
                   echo "Uploading to MinIO bucket..."
-                  mc alias set minio http://historian-minio:9000 minioadmin $MINIO_SECRET_KEY --api S3v4
+                  export MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@historian-minio:9000"
                   mc mb --ignore-existing minio/historian-backups
                   mc cp /tmp/$BACKUP_FILE minio/historian-backups/
 
@@ -122,12 +128,17 @@ spec:
             - name: retention
               image: minio/mc:latest
               env:
-                - name: MINIO_SECRET_KEY
+                # Real MinIO credentials from the secret (see backup job above).
+                - name: MINIO_ROOT_USER
                   valueFrom:
                     secretKeyRef:
                       name: historian-env
-                      key: MINIO_SECRET_KEY
-                      optional: true
+                      key: MINIO_ROOT_USER
+                - name: MINIO_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: historian-env
+                      key: MINIO_ROOT_PASSWORD
               command:
                 - /bin/bash
                 - -c
@@ -138,7 +149,8 @@ spec:
                   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Starting backup retention cleanup..."
                   echo "Removing backups older than $RETENTION_DAYS days"
 
-                  mc alias set minio http://historian-minio:9000 minioadmin $MINIO_SECRET_KEY --api S3v4
+                  # Credentials via MC_HOST env (not command-line args) — see backup job.
+                  export MC_HOST_minio="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@historian-minio:9000"
 
                   # List all backups and remove those older than retention period
                   mc find minio/historian-backups --older-than ${RETENTION_DAYS}d --exec "mc rm {}"

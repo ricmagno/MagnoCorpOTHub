@@ -12,6 +12,10 @@ The TEVE Dashboard is a web-based admin interface for monitoring and managing th
 ### Local Development
 
 ```bash
+# The admin/export endpoints fail closed — set a token before starting, or they
+# return HTTP 503 ("disabled: HISTORIAN_ADMIN_TOKEN is not configured").
+export HISTORIAN_ADMIN_TOKEN="$(openssl rand -hex 32)"
+
 # Start TEVE historian service (if not already running)
 npm run historian:dev
 
@@ -19,7 +23,9 @@ npm run historian:dev
 open http://localhost:3100/dashboard
 ```
 
-You'll be prompted for an admin token. Default in development: `change-me-in-production`
+You'll be prompted for the admin token — use the value you set in `HISTORIAN_ADMIN_TOKEN`.
+There is **no default token**: if the variable is unset, the admin dashboard and the
+bulk-data endpoints (`/api/teve/export`, `/api/teve/pointsdata`) are disabled entirely.
 
 ### Production (Kubernetes)
 

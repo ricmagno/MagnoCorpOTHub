@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { Pool } from 'pg';
+import { requireAdminToken } from '../middleware/admin-auth';
 
 const INTERVALS = new Set(['1m','5m','15m','1h','6h','1d']); // whitelist: interval is interpolated into time_bucket
 
@@ -71,7 +72,11 @@ export function createTeveRouter(db: Pool): Router {
     }
   });
 
-  router.get('/teve/pointsdata', async (req, res) => {
+  // Bulk-data endpoints are admin-token-gated: unlike /teve/data (one tag, caller
+  // must already know the tag id + time range), these return large slices of — or the
+  // entire — metrics table in one request, so they must not be anonymously reachable
+  // even though this router is also fronted by network controls.
+  router.get('/teve/pointsdata', requireAdminToken, async (req, res) => {
     const limit = Math.min(parseInt(String(req.query.limit ?? '1000'), 10), 10_000);
     const result = await db.query(
       `SELECT * FROM historian.teve_pointsdata ORDER BY "DateTime" DESC LIMIT $1`,
@@ -89,7 +94,7 @@ export function createTeveRouter(db: Pool): Router {
    * - Archiving old data to external storage
    * - Data analysis and audit trails
    */
-  router.get('/teve/export', async (req, res) => {
+  router.get('/teve/export', requireAdminToken, async (req, res) => {
     const { from, to, format } = req.query as Record<string, string>;
     const outputFormat = (format || 'jsonl').toLowerCase();
 

@@ -15,6 +15,7 @@ import { startWindowWorker, getWindowQueue } from './workers/window-embedding-qu
 import { createEmbeddingRouter } from './routes/embedding-routes';
 import { createTeveRouter } from './routes/teve-compatibility';
 import { createTeveSearchRouter } from './routes/teve-search';
+import { createAdminDashboardRouter } from './routes/admin-dashboard';
 import { typeDefs } from './graphql/schema';
 import { makeResolvers } from './graphql/resolvers';
 
@@ -41,6 +42,7 @@ async function main() {
   app.use('/api/historian', createEmbeddingRouter(db, embedder, capture));
   app.use('/api', createTeveRouter(db));
   app.use('/api', createTeveSearchRouter(db, engine, windows, anomalyEmbeddings));
+  app.use('/api', createAdminDashboardRouter(db));
 
   const apollo = new ApolloServer({
     schema: makeExecutableSchema({
