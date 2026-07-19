@@ -1,5 +1,12 @@
 # Single-replica MinIO for screenshot storage. Bucket creation ("historian-data") is a
 # one-shot job, matching the docker-compose "minio-init" service.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-minio
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,9 +26,21 @@ spec:
       labels:
         app: historian-minio
     spec:
+      serviceAccountName: historian-minio
+      automountServiceAccountToken: false
       containers:
         - name: minio
-          image: minio/minio:latest
+          # Digest-pinned rather than :latest (resolved from :latest at hardening time — re-resolve via
+          # `docker pull minio/minio:latest && docker inspect --format='{{index .RepoDigests 0}}' minio/minio:latest`
+          # when intentionally bumping). runAsNonRoot/readOnlyRootFilesystem deliberately not set here —
+          # the hostPath volume below is likely created root:root by kubelet (same issue postgres's
+          # initContainer works around) and MinIO's non-root behavior against it isn't verified; do
+          # that as a follow-up once testable against a live cluster.
+          image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           args: ["server", "/data", "--console-address", ":9001"]
           ports:
             - containerPort: 9000
@@ -91,6 +110,13 @@ spec:
   type: ClusterIP
 ---
 # One-shot bucket creation, mirrors the docker-compose "minio-init" service.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-minio-init
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -103,11 +129,25 @@ spec:
       labels:
         app: historian-minio-init
     spec:
+      serviceAccountName: historian-minio-init
+      automountServiceAccountToken: false
       restartPolicy: OnFailure
       containers:
         - name: minio-init
-          image: minio/mc:latest
+          # Digest-pinned rather than :latest (see historian-minio image comment above for the resolve command).
+          image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           env:
+            # /root is dr-xr-x--- in this image (not writable even by root without CAP_DAC_OVERRIDE,
+            # which capabilities.drop:[ALL] removes) — `mc` needs $HOME writable for its config dir.
+            # Confirmed live: without this, the job crash-loops on "Unable to save new mc config."
+            - name: HOME
+              value: /tmp
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:

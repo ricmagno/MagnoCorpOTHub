@@ -3,6 +3,13 @@
 # Before applying, create the init-sql ConfigMap from the schema file already in the repo:
 #   kubectl create configmap historian-init-sql -n magnocorp-othub \
 #     --from-file=init.sql=database/init.sql
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: historian-postgres
+  namespace: magnocorp-othub
+automountServiceAccountToken: false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,6 +29,8 @@ spec:
       labels:
         app: historian-postgres
     spec:
+      serviceAccountName: historian-postgres
+      automountServiceAccountToken: false
       # fsGroup alone does not reliably chown hostPath volumes before container start (a known
       # k8s limitation), and timescale/timescaledb-ha's postgres process (uid/gid 1000) cannot
       # chown its own data dir when it's freshly created by kubelet as root:root — initdb then
@@ -39,6 +48,14 @@ spec:
       containers:
         - name: postgres
           image: timescale/timescaledb-ha:pg16
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000 # matches the fix-data-dir-permissions initContainer's chown target above
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - containerPort: 5432
           env:
