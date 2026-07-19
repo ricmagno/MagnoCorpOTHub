@@ -35,6 +35,13 @@ export interface OpcuaConnectionHealth {
     isLegacyDefault: boolean;
 }
 
+export interface OpcuaCapacity {
+    /** Active connection slots currently held (providers.size on the server). */
+    used: number;
+    /** OPCUA_MAX_CONNECTIONS — the ceiling enforced when starting a new connection. */
+    max: number;
+}
+
 export interface LegacyTagMigrationResult {
     alertConfigs: number;
     teveHistorizeTags: number;

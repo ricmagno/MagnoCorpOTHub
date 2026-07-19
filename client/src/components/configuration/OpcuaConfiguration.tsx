@@ -19,12 +19,13 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { apiService } from '../../services/api';
-import { OpcuaConfig, OpcuaConfiguration as OpcuaConfigType } from '../../types/opcuaConfig';
+import { OpcuaConfig, OpcuaConfiguration as OpcuaConfigType, OpcuaCapacity } from '../../types/opcuaConfig';
 import { useToast } from '../../hooks/useToast';
 import { cn } from '../../utils/cn';
 
 export const OpcuaConfiguration: React.FC = () => {
     const [configs, setConfigs] = useState<OpcuaConfigType[]>([]);
+    const [capacity, setCapacity] = useState<OpcuaCapacity | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isTesting, setIsTesting] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -54,9 +55,24 @@ export const OpcuaConfiguration: React.FC = () => {
         }
     }, [toastError]);
 
+    // Active-connection headroom vs OPCUA_MAX_CONNECTIONS. Refreshed alongside configs
+    // (enable/disable/save/delete all change how many providers are active) but kept as
+    // a separate call since it's server-wide state, not part of the config list itself.
+    const loadCapacity = useCallback(async () => {
+        try {
+            const response = await apiService.getOpcuaCapacity();
+            if (response.success && response.data) {
+                setCapacity(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to load OPC UA connection capacity:', err);
+        }
+    }, []);
+
     useEffect(() => {
         loadConfigs();
-    }, [loadConfigs]);
+        loadCapacity();
+    }, [loadConfigs, loadCapacity]);
 
     const handleTestConnection = async (config: OpcuaConfig, id?: string) => {
         try {
@@ -147,7 +163,7 @@ export const OpcuaConfiguration: React.FC = () => {
             if (response.success) {
                 success(config.enabled ? 'Connection Disabled' : 'Connection Enabled');
                 // Add a small delay to ensure backend state has settled
-                setTimeout(() => loadConfigs(), 300);
+                setTimeout(() => { loadConfigs(); loadCapacity(); }, 300);
             }
         } catch (err: any) {
             toastError(config.enabled ? 'Disable Failed' : 'Enable Failed', err.message);
@@ -213,7 +229,7 @@ export const OpcuaConfiguration: React.FC = () => {
             if (response.success) {
                 success('Configuration Deleted');
                 // Add a small delay to ensure backend state has settled
-                setTimeout(() => loadConfigs(), 300);
+                setTimeout(() => { loadConfigs(); loadCapacity(); }, 300);
                 if (editingConfigId === id) {
                     handleCancelEdit();
                 }
@@ -361,10 +377,28 @@ export const OpcuaConfiguration: React.FC = () => {
             </Card>
 
             <div className="space-y-4">
-                <h3 className="text-lg font-medium flex items-center">
-                    <Server className="h-5 w-5 mr-2 text-gray-500" />
-                    Configured OPC UA Servers
-                </h3>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium flex items-center">
+                        <Server className="h-5 w-5 mr-2 text-gray-500" />
+                        Configured OPC UA Servers
+                    </h3>
+                    {capacity && (() => {
+                        const ratio = capacity.max > 0 ? capacity.used / capacity.max : 0;
+                        const tone = ratio >= 1
+                            ? 'bg-red-100 text-red-800'
+                            : ratio >= 0.8
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-gray-100 text-gray-600';
+                        return (
+                            <span
+                                className={cn('px-2.5 py-1 rounded-full text-xs font-semibold', tone)}
+                                title="Active OPC UA connection slots in use, out of the server's OPCUA_MAX_CONNECTIONS limit"
+                            >
+                                {capacity.used} / {capacity.max} active connections
+                            </span>
+                        );
+                    })()}
+                </div>
 
                 {/* ... (isLoading / configs.length logic) ... */}
                 {isLoading ? (

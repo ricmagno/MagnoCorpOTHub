@@ -16,7 +16,8 @@ import {
   OpcuaConfiguration,
   OpcuaConnectionHealth,
   OpcuaTagInfo,
-  LegacyTagMigrationResult
+  LegacyTagMigrationResult,
+  OpcuaCapacity
 } from '../types/opcuaConfig';
 import {
   DatabaseConfig,
@@ -973,6 +974,10 @@ export const apiService = {
   // OPC UA Configuration endpoints
   async getOpcuaConfigs(): Promise<ApiResponse<OpcuaConfiguration[]>> {
     return fetchWithRetry('/opcua/configs');
+  },
+
+  async getOpcuaCapacity(): Promise<ApiResponse<OpcuaCapacity>> {
+    return fetchWithRetry('/opcua/capacity');
   },
 
   async saveOpcuaConfig(config: OpcuaConfig): Promise<ApiResponse<{ id: string }>> {

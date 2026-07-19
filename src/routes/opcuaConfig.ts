@@ -7,6 +7,7 @@ import { legacyTagMigrationService } from '@/services/opcua/legacyTagMigrationSe
 import { asyncHandler } from '@/middleware/errorHandler';
 import { authenticateToken, requireRole } from '@/middleware/auth';
 import { apiLogger } from '@/utils/logger';
+import { env } from '@/config/environment';
 
 const router = Router();
 
@@ -110,6 +111,20 @@ router.get('/browse', asyncHandler(async (req: Request, res: Response) => {
 // Runtime status of all live connections (for the configuration UI).
 router.get('/connections', asyncHandler(async (_req: Request, res: Response) => {
     res.json({ success: true, data: opcuaManager.health() });
+}));
+
+// Active connection slots used vs OPCUA_MAX_CONNECTIONS — `used` is providers.size,
+// the exact figure startConnection() checks before it throws "connection limit
+// reached". Surfaced so the configuration UI can show admins how much headroom is
+// left before adding another server.
+router.get('/capacity', asyncHandler(async (_req: Request, res: Response) => {
+    res.json({
+        success: true,
+        data: {
+            used: opcuaManager.listProviders().length,
+            max: env.OPCUA_MAX_CONNECTIONS,
+        },
+    });
 }));
 
 router.post('/configs/:id/enable', requireRole('admin'), asyncHandler(async (req: Request, res: Response) => {
