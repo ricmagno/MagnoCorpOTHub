@@ -2,6 +2,7 @@ import React from 'react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { cn } from '../../utils/cn';
+import { tagDisplayName } from '../../utils/tagDisplay';
 
 interface RadialGaugeProps {
     value: number;
@@ -96,7 +97,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
                 ]
             }
         },
-        labels: [tagName],
+        labels: [tagDisplayName(tagName)],
     };
 
     const series = [clampedPercentage];
@@ -147,7 +148,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
                     "font-semibold text-gray-400 truncate max-w-[80%] px-2 mt-2",
                     isMaximized ? "text-xl" : "text-[10px]"
                 )} title={tagName}>
-                    {tagName}
+                    {tagDisplayName(tagName)}
                 </span>
             </div>
 

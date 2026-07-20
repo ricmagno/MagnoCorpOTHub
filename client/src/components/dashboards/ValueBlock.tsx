@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
+import { tagDisplayName } from '../../utils/tagDisplay';
 
 interface ValueBlockProps {
     tagName: string;
@@ -76,7 +77,7 @@ export const ValueBlock: React.FC<ValueBlockProps> = ({
                     "font-semibold text-gray-400 truncate max-w-full px-2",
                     isMaximized ? "text-xl" : "text-[10px]"
                 )} title={tagName}>
-                    {tagName}
+                    {tagDisplayName(tagName)}
                 </span>
             </div>
 

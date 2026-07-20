@@ -9,6 +9,7 @@ import { ApexOptions } from 'apexcharts';
 import { TimeSeriesData, StatisticsResult } from '../../types/api';
 import { GuideLine } from '../../types/guideLines';
 import { calculateTrendLine, TrendAnalysisResult, formatYValue } from './chartUtils';
+import { tagDisplayName } from '../../utils/tagDisplay';
 
 interface MiniChartProps {
   data: TimeSeriesData[];
@@ -82,7 +83,7 @@ export const MiniChart: React.FC<MiniChartProps> = ({
 
     if (chartData) {
       s.push({
-        name: tagName,
+        name: tagDisplayName(tagName),
         type: type === 'bar' ? 'column' : (type === 'area' ? 'area' : 'line'),
         data: chartData
       });
@@ -259,7 +260,7 @@ export const MiniChart: React.FC<MiniChartProps> = ({
       <div className="mb-2 flex items-start justify-between border-b border-gray-100 pb-2">
         <div className="flex flex-col min-w-0 flex-1">
           <span className="text-sm font-bold text-gray-800 truncate" title={title || tagName}>
-            {title || tagName}
+            {title || tagDisplayName(tagName)}
           </span>
           {description && (
             <span className="text-[10px] font-normal text-gray-400 truncate mt-0.5" title={description}>

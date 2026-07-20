@@ -10,6 +10,7 @@ import { TimeSeriesData } from '../../types/api';
 import { GuideLine, ChartBounds, ChartScale } from '../../types/guideLines';
 import { CHART_COLORS, getTagColor, getTagIndex, calculateTrendLine, TrendAnalysisResult, formatYValue } from './chartUtils';
 import { cn } from '../../utils/cn';
+import { tagDisplayName } from '../../utils/tagDisplay';
 
 interface MultiTrendChartProps {
     dataPoints: Record<string, TimeSeriesData[]>;
@@ -50,7 +51,7 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
     includeTrendLines = true,
 }) => {
     // Transform data for ApexCharts
-    const { series, colors, strokeWidths, dashArrays, trendMetadata } = useMemo(() => {
+    const { series, colors, strokeWidths, dashArrays, trendMetadata, displayNameToTag } = useMemo(() => {
         const allTags = tags || Object.keys(dataPoints);
         const activeTags = allTags.filter(tag => dataPoints[tag] && dataPoints[tag].length > 0);
 
@@ -59,6 +60,9 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
         const widths: number[] = [];
         const dashes: number[] = [];
         const metadata: Record<string, TrendAnalysisResult> = {};
+        // ApexCharts only gives the tooltip formatter the (now display-named) series
+        // name, but trendMetadata/dataPoints are keyed by the raw tag — this maps back.
+        const nameToTag: Record<string, string> = {};
 
         activeTags.forEach((tag) => {
             const data = [...dataPoints[tag]].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -74,8 +78,10 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
             }));
 
             // Main Data Series
+            const displayName = tagDisplayName(tag);
+            nameToTag[displayName] = tag;
             seriesData.push({
-                name: tag,
+                name: displayName,
                 type: type === 'bar' ? 'column' : (type === 'area' ? 'area' : 'line'),
                 data: points
             });
@@ -88,7 +94,7 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
                 const analysis = calculateTrendLine(points);
                 if (analysis) {
                     seriesData.push({
-                        name: `${tag} (Trend)`,
+                        name: `${tagDisplayName(tag)} (Trend)`,
                         type: 'line',
                         data: analysis.points
                     });
@@ -105,7 +111,8 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
             colors: seriesColors,
             strokeWidths: widths,
             dashArrays: dashes,
-            trendMetadata: metadata
+            trendMetadata: metadata,
+            displayNameToTag: nameToTag
         };
     }, [dataPoints, tags, type, includeTrendLines]);
 
@@ -257,8 +264,8 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
                 formatter: (val, { seriesIndex, w }: any) => {
                     const seriesName = w.config.series[seriesIndex]?.name;
                     if (seriesName && typeof seriesName === 'string' && seriesName.endsWith('(Trend)')) {
-                        const originalTag = seriesName.replace(' (Trend)', '');
-                        const meta = trendMetadata[originalTag];
+                        const originalTag = displayNameToTag[seriesName.replace(' (Trend)', '')];
+                        const meta = originalTag ? trendMetadata[originalTag] : undefined;
                         if (meta) {
                             return `${formatYValue(val)} [${meta.equation}]`;
                         }
@@ -322,9 +329,9 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
                                 <div className="flex items-center mb-2">
                                     <div
                                         className="w-2 h-2 rounded-full mr-2"
-                                        style={{ backgroundColor: colors[series.findIndex(s => s.name === tag)] }}
+                                        style={{ backgroundColor: colors[series.findIndex(s => s.name === tagDisplayName(tag))] }}
                                     />
-                                    <span className="text-xs font-bold text-gray-700 truncate">{tag}</span>
+                                    <span className="text-xs font-bold text-gray-700 truncate" title={tag}>{tagDisplayName(tag)}</span>
                                 </div>
                                 <div className="space-y-1 font-mono text-[10px]">
                                     <div className="flex items-center">

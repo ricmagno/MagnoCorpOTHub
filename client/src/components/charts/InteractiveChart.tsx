@@ -11,6 +11,7 @@ import { MiniChart } from './MiniChart';
 import { GuideLineControls } from './GuideLineControls';
 import { calculateChartScale } from '../../utils/chartBounds';
 import { cn } from '../../utils/cn';
+import { tagDisplayName } from '../../utils/tagDisplay';
 
 interface InteractiveChartProps {
   /** Chart data points */
@@ -183,7 +184,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
               height={height}
               showTrend={includeTrendLines}
               showAxis={true}
-              title={title || tagName}
+              title={title || tagDisplayName(tagName)}
               description={tagDescriptions[tagName]}
               units={units}
               statistics={statistics}

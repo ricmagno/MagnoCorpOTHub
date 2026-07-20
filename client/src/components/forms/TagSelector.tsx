@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { cn } from '../../utils/cn';
+import { classifyTag } from '../../utils/tagDisplay';
 
 interface TagSelectorProps {
   selectedTags: string[];
@@ -363,25 +364,28 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
                     <div className="p-3 text-center text-gray-500">Loading tags...</div>
                   ) : (
                     <>
-                      {unselectedTags.slice(0, 20).map((tag) => (
-                        <button
-                          key={tag.name}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-0"
-                          onClick={() => handleAddTag(tag.name)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-gray-900">{tag.name}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {tag.description}
+                      {unselectedTags.slice(0, 20).map((tag) => {
+                        const { displayName } = classifyTag(tag.name);
+                        return (
+                          <button
+                            key={tag.name}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-0"
+                            onClick={() => handleAddTag(tag.name)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium text-gray-900">{displayName}</div>
+                                <div className="text-sm text-gray-500 truncate">
+                                  {tag.description}
+                                </div>
+                              </div>
+                              <div className="text-xs text-gray-400 ml-2">
+                                {tag.units}
                               </div>
                             </div>
-                            <div className="text-xs text-gray-400 ml-2">
-                              {tag.units}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
 
                       {searchTerm && !unselectedTags.some(t => t.name.toLowerCase() === searchTerm.toLowerCase()) && (
                         <button
@@ -506,21 +510,15 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
             <h4 className="text-sm font-medium text-gray-700">Selected Tags:</h4>
             <div className="flex flex-wrap gap-2">
               {selectedTags.map((tagName) => {
-                const isOpcua = tagName.startsWith('opcua:');
-                const isTensor = tagName.startsWith('tensor:');
-                const displayName = isOpcua
-                  ? tagName.replace('opcua:', 'OPC: ')
-                  : isTensor
-                  ? tagName.replace('tensor:', 'TEVE: ')
-                  : tagName;
+                const { displayName, source } = classifyTag(tagName);
                 return (
                   <div
                     key={tagName}
                     className={cn(
                       'inline-flex items-center px-3 py-1 rounded-full text-sm border',
-                      isOpcua
+                      source === 'opcua'
                         ? 'bg-blue-100 text-blue-800 border-blue-200'
-                        : isTensor
+                        : source === 'tensor'
                         ? 'bg-purple-100 text-purple-800 border-purple-200'
                         : 'bg-primary-100 text-primary-800 border-primary-200'
                     )}

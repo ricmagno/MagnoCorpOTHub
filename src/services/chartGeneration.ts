@@ -13,6 +13,7 @@ import { TimeSeriesData, StatisticsResult, TrendResult, SPCMetrics, Specificatio
 import { reportLogger } from '@/utils/logger';
 import { env } from '@/config/environment';
 import { chartBufferValidator } from '@/utils/chartBufferValidator';
+import { tagDisplayName } from '@/utils/tagDisplay';
 
 // Make sure Chart has _adapters property which the date adapter expects
 if (Chart && !(Chart as any)._adapters) {
@@ -216,7 +217,7 @@ export class ChartGenerationService {
         const baseColor = grayscale ? '#000000' : (dataset.color || this.getStableTagColor(dataset.tagName, options.tags || []));
 
         chartDatasets.push({
-          label: dataset.tagName,
+          label: tagDisplayName(dataset.tagName),
           data: dataset.data.map(point => ({
             x: point.timestamp.getTime(),
             y: point.value
@@ -571,7 +572,7 @@ export class ChartGenerationService {
         data: {
           datasets: [
             {
-              label: `${data.tagName} (Actual)`,
+              label: `${tagDisplayName(data.tagName)} (Actual)`,
               data: actualData,
               borderColor: data.color || this.defaultColors[0],
               backgroundColor: this.addAlpha(data.color || this.defaultColors[0], 0.1),
@@ -581,7 +582,7 @@ export class ChartGenerationService {
               pointRadius: 3
             },
             {
-              label: `${data.tagName} (Trend)`,
+              label: `${tagDisplayName(data.tagName)} (Trend)`,
               data: trendData,
               borderColor: this.addAlpha(data.color || this.defaultColors[1], 0.8),
               backgroundColor: 'transparent',
@@ -598,7 +599,7 @@ export class ChartGenerationService {
           plugins: {
             title: {
               display: !!options.title,
-              text: options.title || `${data.tagName} Trend Analysis`,
+              text: options.title || `${tagDisplayName(data.tagName)} Trend Analysis`,
               font: {
                 size: 16,
                 weight: 'bold'
@@ -695,7 +696,7 @@ export class ChartGenerationService {
       const config: ChartConfiguration = {
         type: 'bar',
         data: {
-          labels: tagNames,
+          labels: tagNames.map(tagDisplayName),
           datasets: [
             {
               label: 'Average',
@@ -969,7 +970,7 @@ export class ChartGenerationService {
             title: {
               display: true,
               text: [
-                `${tagName} - Statistical Process Control Chart`,
+                `${tagDisplayName(tagName)} - Statistical Process Control Chart`,
                 `σ = ${spcMetrics.stdDev.toFixed(2)}${capabilityInfo}`
               ],
               font: {
@@ -1278,7 +1279,7 @@ export class ChartGenerationService {
           .map(([tagName, tagData]) => ({
             key: `${tagName}_trend`,
             trendData: { tagName, data: tagData, trend: trends![tagName]! },
-            opts: { title: `${tagName} - Trend Analysis` }
+            opts: { title: `${tagDisplayName(tagName)} - Trend Analysis` }
           }));
 
         const trendResults = await Promise.all(
