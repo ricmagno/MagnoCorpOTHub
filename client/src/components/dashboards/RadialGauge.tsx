@@ -32,7 +32,10 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
         bad: 'bg-red-500',
         uncertain: 'bg-amber-500'
     };
-    // Calculate percentage for the gauge
+    // Percentage of the value's position within [min, max]. Shown unclamped in the
+    // central number (e.g. "120%") so a value outside the configured range stays
+    // visible as an overshoot instead of silently reading "100%" — only the arc
+    // fill itself (ApexCharts radialBar) is clamped to a fillable 0-100.
     const range = max - min;
     const percentage = range > 0 ? ((value - min) / range) * 100 : 0;
     const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
@@ -131,16 +134,23 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
                         "font-black tracking-tighter text-gray-900 leading-none",
                         isMaximized ? "text-8xl" : "text-4xl"
                     )}>
-                        {value.toFixed(1)}
+                        {percentage.toFixed(0)}
                     </span>
-                    {unit && (
-                        <span className={cn(
-                            "font-bold text-gray-400",
-                            isMaximized ? "text-3xl" : "text-sm"
-                        )}>
-                            {unit}
-                        </span>
-                    )}
+                    <span className={cn(
+                        "font-bold text-gray-400",
+                        isMaximized ? "text-3xl" : "text-sm"
+                    )}>
+                        %
+                    </span>
+                </div>
+                {/* Raw value + unit — the gauge fill and the big number above are both
+                    relative to the configured range, so the actual reading is shown
+                    here for reference. */}
+                <div className={cn(
+                    "font-semibold text-gray-400",
+                    isMaximized ? "text-2xl mt-1" : "text-xs mt-0.5"
+                )}>
+                    {value.toFixed(1)}{unit ? ` ${unit}` : ''}
                 </div>
 
                 {/* Tag Name styled like Radial Gauge pattern */}
