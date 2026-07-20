@@ -12,6 +12,23 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react';
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    KeyboardSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove,
+    sortableKeyboardCoordinates
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -127,6 +144,28 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
             ...prev,
             widgets: prev.widgets.filter(w => w.id !== id)
         }));
+    };
+
+    // DashboardView.tsx renders widgets in plain array order via a flow-based CSS
+    // grid (no absolute x/y positioning) — so reordering config.widgets is exactly
+    // what changes the rendered order. A small pointer-move threshold before a drag
+    // "activates" so a plain click on the card (e.g. focusing an input) never gets
+    // mistaken for a drag start.
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        setConfig(prev => {
+            const oldIndex = prev.widgets.findIndex(w => w.id === active.id);
+            const newIndex = prev.widgets.findIndex(w => w.id === over.id);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            return { ...prev, widgets: arrayMove(prev.widgets, oldIndex, newIndex) };
+        });
     };
 
     const handleSave = async () => {
@@ -256,122 +295,22 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                     </div>
 
                     <div className="space-y-4">
-                        {config.widgets.map((widget, index) => (
-                            <Card key={widget.id} className="border-l-4 border-l-primary-500">
-                                <CardHeader className="py-3 px-4 flex flex-row items-center justify-between bg-gray-50/50">
-                                    <div className="flex items-center gap-2">
-                                        <span className="bg-primary-600 text-white w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">
-                                            {index + 1}
-                                        </span>
-                                        <h4 className="font-medium text-gray-900 truncate max-w-[200px]">
-                                            {widget.title || 'Untitled Widget'}
-                                        </h4>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleRemoveWidget(widget.id)}
-                                            className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-4">
-                                        <Input
-                                            label="Widget Title"
-                                            value={widget.title}
-                                            onChange={e => handleUpdateWidget(widget.id, { title: e.target.value })}
-                                        />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="block text-sm font-medium text-gray-700">Type</label>
-                                                <select
-                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
-                                                    value={widget.type}
-                                                    onChange={e => handleUpdateWidget(widget.id, { type: e.target.value as any })}
-                                                >
-                                                    <option value="line">Line Chart</option>
-                                                    <option value="bar">Bar Chart</option>
-                                                    <option value="trend">Trend Line</option>
-                                                    <option value="area">Area Chart</option>
-                                                    <option value="radial-gauge">Radial Gauge %</option>
-                                                    <option value="value-block">Value Block</option>
-                                                    <option value="radar">Radar Chart</option>
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-sm font-medium text-gray-700">Width</label>
-                                                <select
-                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
-                                                    value={widget.layout.w}
-                                                    onChange={e => handleUpdateWidget(widget.id, {
-                                                        layout: { ...widget.layout, w: parseInt(e.target.value) as any }
-                                                    })}
-                                                >
-                                                    {widget.type === 'value-block' || widget.type === 'radial-gauge' ? (
-                                                        <>
-                                                            <option value={1}>1/4 (Block)</option>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <option value={2}>1/2 (Default Chart)</option>
-                                                            <option value={4}>Full Width (4/4)</option>
-                                                        </>
-                                                    )}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        {widget.type === 'radial-gauge' && (
-                                            <div className="space-y-1">
-                                                <label className="block text-sm font-medium text-gray-700">
-                                                    Gauge Range
-                                                </label>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="Min (default 0)"
-                                                        value={widget.options?.minValue ?? ''}
-                                                        onChange={e => handleUpdateWidget(widget.id, {
-                                                            options: {
-                                                                ...widget.options,
-                                                                minValue: e.target.value === '' ? undefined : Number(e.target.value)
-                                                            }
-                                                        })}
-                                                    />
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="Max (default 100)"
-                                                        value={widget.options?.maxValue ?? ''}
-                                                        onChange={e => handleUpdateWidget(widget.id, {
-                                                            options: {
-                                                                ...widget.options,
-                                                                maxValue: e.target.value === '' ? undefined : Number(e.target.value)
-                                                            }
-                                                        })}
-                                                    />
-                                                </div>
-                                                <p className="text-xs text-gray-400">
-                                                    Overrides the tag's own range. Leave blank to use the AVEVA
-                                                    Historian engineering-unit range if configured, or 0-100 otherwise
-                                                    — required for TEVE tags, which have no range of their own.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-700">Tags</label>
-                                        <TagSelector
-                                            selectedTags={widget.tags}
-                                            onChange={tags => handleUpdateWidget(widget.id, { tags })}
-                                            maxTags={5}
-                                            widgetType={widget.type}
-                                            className="border shadow-none"
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                            <SortableContext
+                                items={config.widgets.map(w => w.id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                {config.widgets.map((widget, index) => (
+                                    <SortableWidgetCard
+                                        key={widget.id}
+                                        widget={widget}
+                                        index={index}
+                                        onUpdate={handleUpdateWidget}
+                                        onRemove={handleRemoveWidget}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </DndContext>
 
                         {config.widgets.length === 0 && (
                             <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-12 text-center text-gray-400">
@@ -388,5 +327,159 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                 </div>
             </div>
         </div>
+    );
+};
+
+interface SortableWidgetCardProps {
+    widget: WidgetConfig;
+    index: number;
+    onUpdate: (id: string, updates: Partial<WidgetConfig>) => void;
+    onRemove: (id: string) => void;
+}
+
+// Drag-and-drop is confined to the dedicated handle (the Move icon button) rather
+// than the whole card — the card is full of inputs/selects/the tag picker, and
+// attaching drag listeners to the entire card would fight with clicking into them.
+const SortableWidgetCard: React.FC<SortableWidgetCardProps> = ({ widget, index, onUpdate, onRemove }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: widget.id });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : undefined
+    };
+
+    return (
+        <Card ref={setNodeRef} style={style} className="border-l-4 border-l-primary-500">
+            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between bg-gray-50/50">
+                <div className="flex items-center gap-2">
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+                        title="Drag to reorder"
+                        aria-label={`Reorder ${widget.title || 'widget'}`}
+                    >
+                        <Move className="h-4 w-4" />
+                    </button>
+                    <span className="bg-primary-600 text-white w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">
+                        {index + 1}
+                    </span>
+                    <h4 className="font-medium text-gray-900 truncate max-w-[200px]">
+                        {widget.title || 'Untitled Widget'}
+                    </h4>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onRemove(widget.id)}
+                        className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded transition-colors"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
+            </CardHeader>
+            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                    <Input
+                        label="Widget Title"
+                        value={widget.title}
+                        onChange={e => onUpdate(widget.id, { title: e.target.value })}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">Type</label>
+                            <select
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                value={widget.type}
+                                onChange={e => onUpdate(widget.id, { type: e.target.value as any })}
+                            >
+                                <option value="line">Line Chart</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="trend">Trend Line</option>
+                                <option value="area">Area Chart</option>
+                                <option value="radial-gauge">Radial Gauge %</option>
+                                <option value="value-block">Value Block</option>
+                                <option value="radar">Radar Chart</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">Width</label>
+                            <select
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                value={widget.layout.w}
+                                onChange={e => onUpdate(widget.id, {
+                                    layout: { ...widget.layout, w: parseInt(e.target.value) as any }
+                                })}
+                            >
+                                {widget.type === 'value-block' || widget.type === 'radial-gauge' ? (
+                                    <>
+                                        <option value={1}>1/4 (Block)</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value={2}>1/2 (Default Chart)</option>
+                                        <option value={4}>Full Width (4/4)</option>
+                                    </>
+                                )}
+                            </select>
+                        </div>
+                    </div>
+                    {widget.type === 'radial-gauge' && (
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Gauge Range
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                    type="number"
+                                    placeholder="Min (default 0)"
+                                    value={widget.options?.minValue ?? ''}
+                                    onChange={e => onUpdate(widget.id, {
+                                        options: {
+                                            ...widget.options,
+                                            minValue: e.target.value === '' ? undefined : Number(e.target.value)
+                                        }
+                                    })}
+                                />
+                                <Input
+                                    type="number"
+                                    placeholder="Max (default 100)"
+                                    value={widget.options?.maxValue ?? ''}
+                                    onChange={e => onUpdate(widget.id, {
+                                        options: {
+                                            ...widget.options,
+                                            maxValue: e.target.value === '' ? undefined : Number(e.target.value)
+                                        }
+                                    })}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                Overrides the tag's own range. Leave blank to use the AVEVA
+                                Historian engineering-unit range if configured, or 0-100 otherwise
+                                — required for TEVE tags, which have no range of their own.
+                            </p>
+                        </div>
+                    )}
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Tags</label>
+                    <TagSelector
+                        selectedTags={widget.tags}
+                        onChange={tags => onUpdate(widget.id, { tags })}
+                        maxTags={5}
+                        widgetType={widget.type}
+                        className="border shadow-none"
+                    />
+                </div>
+            </CardContent>
+        </Card>
     );
 };

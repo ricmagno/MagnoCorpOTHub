@@ -5,13 +5,14 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export const Card: React.FC<CardProps> = ({
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(({
   children,
   className,
   ...props
-}) => {
+}, ref) => {
   return (
     <div
+      ref={ref}
       className={cn(
         'bg-white rounded-lg border border-gray-200 shadow-sm',
         className
@@ -21,7 +22,8 @@ export const Card: React.FC<CardProps> = ({
       {children}
     </div>
   );
-};
+});
+Card.displayName = 'Card';
 
 interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
