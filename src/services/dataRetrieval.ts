@@ -28,6 +28,9 @@ export class DataRetrievalService {
   private cacheService: CacheService | undefined;
   private readonly STREAM_BATCH_SIZE = 1000;
   private readonly LARGE_DATASET_THRESHOLD = 10000;
+  // Must match teve-compatibility.ts's own cap on /teve/data's limit param —
+  // exceeding it there returns a 400, not a truncated result.
+  private readonly TEVE_MAX_LIMIT = 10000;
 
   constructor(cacheService?: CacheService) {
     this.cacheService = cacheService;
@@ -998,7 +1001,15 @@ export class DataRetrievalService {
       // Live mode means "most recent value only" (mirrors AVEVA Historian's Live
       // view) — without this, a live dashboard widget re-fetches the entire time
       // range from TEVE on every poll instead of just the latest point.
-      const limit = options?.mode === RetrievalMode.Live ? 1 : options?.limit;
+      //
+      // Non-live (trend/history) callers pass a huge sentinel limit (e.g. 1e12,
+      // see Widget.tsx) meaning "no practical cap" — fine for AVEVA's SQL TOP, but
+      // TEVE's /teve/data route rejects anything over TEVE_MAX_LIMIT with a 400,
+      // which this function then silently turns into an empty array (see the
+      // !res.ok branch below) — trend widgets went blank with no error surfaced
+      // anywhere. Clamp instead of forwarding the raw value.
+      const rawLimit = options?.mode === RetrievalMode.Live ? 1 : options?.limit;
+      const limit = rawLimit ? Math.min(rawLimit, this.TEVE_MAX_LIMIT) : undefined;
       const params = new URLSearchParams({
         tag,
         from: timeRange.startTime.toISOString(),
