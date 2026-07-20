@@ -690,6 +690,10 @@ export class ReportGenerationService {
     const companyName = config.branding?.companyName || globalBranding.companyName || 'MagnoCorpOTHub';
     const appName = globalBranding.appName || 'MagnoCorpOTHub';
 
+    // Brand accent bar — the first thing a reader sees, so this is the highest-
+    // visibility place to reflect the configured primary color.
+    doc.rect(0, 0, doc.page.width, 4).fill(globalBranding.primaryColor);
+
     doc.fontSize(16)
       .fillColor('#111827')
       .font('Helvetica-Bold')
@@ -947,6 +951,8 @@ export class ReportGenerationService {
     doc: PDFKit.PDFDocument,
     statistics: Record<string, StatisticsResult>
   ): void {
+    const primaryColor = brandingService.getSettings().primaryColor;
+
     if (Object.keys(statistics).length === 0) {
       doc.fontSize(11)
         .fillColor('#6b7280')
@@ -1006,9 +1012,9 @@ export class ReportGenerationService {
 
     const headerTop = doc.y;
 
-    // Header background
+    // Header background — branded (was hardcoded navy)
     doc.rect(tableLeft, headerTop, totalTableWidth, headerHeight)
-      .fill('#1e3a5f');
+      .fill(primaryColor);
 
     // Header text
     let xPos = tableLeft;
@@ -1114,7 +1120,7 @@ export class ReportGenerationService {
     });
 
     // ── Table bottom border ──────────────────────────────────────────────
-    doc.strokeColor('#1e3a5f')
+    doc.strokeColor(primaryColor)
       .lineWidth(1)
       .moveTo(tableLeft, doc.y)
       .lineTo(tableLeft + totalTableWidth, doc.y)
@@ -1174,6 +1180,7 @@ export class ReportGenerationService {
     stats?: StatisticsResult,
     trend?: TrendResult
   ): void {
+    const { primaryColor, accentColor } = brandingService.getSettings();
     const cardWidth = 545;
     const cardPadding = 12;
     const headerHeight = 35;
@@ -1223,12 +1230,12 @@ export class ReportGenerationService {
       const avgWidth = avgLabelWidth + avgValWidth;
       const maxWidth = maxLabelWidth + maxValWidth;
 
-      // Line 1: Statistics (AVG in blue, MAX in amber)
+      // Line 1: Statistics (AVG in the brand's primary color, MAX in its accent color)
       const lineX = statsX - (avgWidth + maxWidth);
       doc.fillColor('#94a3b8').font('Helvetica').text(avgLabel, lineX, statsY, { continued: true })
-        .fillColor('#2563eb').font('Helvetica-Bold').text(avgVal, { continued: true })
+        .fillColor(primaryColor).font('Helvetica-Bold').text(avgVal, { continued: true })
         .fillColor('#94a3b8').font('Helvetica').text(maxLabel, { continued: true })
-        .fillColor('#d97706').font('Helvetica-Bold').text(maxVal);
+        .fillColor(accentColor).font('Helvetica-Bold').text(maxVal);
 
       // Line 2: Point count
       doc.fontSize(8.5).fillColor('#94a3b8').font('Helvetica').text(ptsStr, statsX - ptsWidth - 5, statsY + 11);
@@ -1281,12 +1288,12 @@ export class ReportGenerationService {
       const col1X = contentX + 10;
       const col2X = contentX + (tableWidth * 0.5);
 
-      // Row 1: Equation and R²
+      // Row 1: Equation and R² (brand primary/accent, matching the stat-card accents above)
       doc.fillColor('#94a3b8').text('Equation:', col1X, tableY + footerPadding, { continued: true })
-        .fillColor('#2563eb').font('Helvetica-Bold').text(' ' + rateStr);
+        .fillColor(primaryColor).font('Helvetica-Bold').text(' ' + rateStr);
 
       doc.fillColor('#94a3b8').font('Helvetica').text('R²:', col2X, tableY + footerPadding, { continued: true })
-        .fillColor('#d97706').font('Helvetica-Bold').text(' ' + trend.confidence.toFixed(4));
+        .fillColor(accentColor).font('Helvetica-Bold').text(' ' + trend.confidence.toFixed(4));
 
       // Row 2: Std Dev and Variance
       doc.fillColor('#94a3b8').font('Helvetica').text('Std Dev:', col1X, tableY + footerPadding + rowHeight, { continued: true })
