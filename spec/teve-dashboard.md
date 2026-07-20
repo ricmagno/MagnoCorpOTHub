@@ -17,7 +17,7 @@ The TEVE Dashboard is a web-based admin interface for monitoring and managing th
 export HISTORIAN_ADMIN_TOKEN="$(openssl rand -hex 32)"
 
 # Start TEVE historian service (if not already running)
-npm run historian:dev
+npm run teve:dev
 
 # Open the dashboard
 open http://localhost:3100/dashboard
@@ -61,7 +61,7 @@ In local development, set the environment variable:
 
 ```bash
 export HISTORIAN_ADMIN_TOKEN="your-dev-token"
-npm run historian:dev
+npm run teve:dev
 ```
 
 **⚠️ Security Note:** The token is transmitted in the `Authorization` header. Always use HTTPS in production to prevent token interception.

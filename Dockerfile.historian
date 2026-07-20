@@ -56,7 +56,7 @@ RUN for i in 1 2 3 4 5; do npm ci --omit=dev --legacy-peer-deps && npm cache cle
 #     internet; the resulting cache is baked into the worker image only. ---
 FROM builder AS model-warmup
 ENV HISTORIAN_MODEL_CACHE_DIR=/app/.model-cache
-RUN npm run historian:warmup-model
+RUN npm run teve:warmup-model
 
 # --- Stage 4a: API image — needs Chromium for capture AND the model cache for
 #     /teve/search (CLIP text encoder, loaded lazily on first search) ---

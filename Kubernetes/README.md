@@ -80,7 +80,7 @@ kubectl apply -f historian-ingress.yaml
 
 **Note**: both images bake in the CLIP model cache at build time (`HISTORIAN_ALLOW_REMOTE_MODELS=false`), so no pod needs runtime internet access — required for air-gapped plant networks. Worker pods load the vision model at startup; API pods lazily load the smaller text encoder on the first `/api/teve/search` call (the API memory limit includes ~250MB headroom for it). The API image also ships Chromium (Puppeteer) for screenshot capture.
 
-After schema changes, run the historian migration runner against the deployed database (from a machine that can reach it): `npm run historian:migrate` — it applies any pending `database/migrations/*.sql` and is a no-op otherwise.
+After schema changes, run the TEVE migration runner against the deployed database (from a machine that can reach it): `npm run teve:migrate` — it applies any pending `database/migrations/*.sql` and is a no-op otherwise.
 
 ## Automated Deployment (Watchdog)
 
