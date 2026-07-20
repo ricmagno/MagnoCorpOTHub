@@ -415,7 +415,7 @@ router.get('/:tagName/statistics', asyncHandler(async (req: Request, res: Respon
   const data = await dataRetrievalService.getTimeSeriesData(tagName, timeRange, { mode: RetrievalMode.Cyclic, maxPoints: 1000 });
 
   let trend;
-  if (data.length >= 2) {
+  if (data.length >= 3) {
     trend = statisticalAnalysisService.calculateTrendLine(data);
   }
 
