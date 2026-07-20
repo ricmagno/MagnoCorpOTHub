@@ -392,9 +392,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
     // for 3/4 and full width. This applies to the whole card (header included) —
     // putting it on CardContent alone made the content area a square but let the
     // header stack extra height on top, so the visible block (what the user
-    // actually sees) was still a portrait rectangle, not a square. Applies to
-    // every widget type uniformly, radar included — card height follows its
-    // configured width like everything else.
+    // actually sees) was still a portrait rectangle, not a square.
     const aspectClass = widget.layout.w === 1 ? 'aspect-square' :
         widget.layout.w === 2 ? 'aspect-[2/1]' :
             widget.layout.w === 3 ? 'aspect-[3/1]' :
