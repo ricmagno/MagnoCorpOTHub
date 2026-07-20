@@ -385,16 +385,12 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
         );
     };
 
-    // Convert layout dimensions to style or class
-    // For now using simple aspect ratio or fixed height based on 'h'
-    // A radar chart needs real vertical room for the polygon + surrounding axis
-    // labels no matter how narrow its configured width is — at the same height
-    // as a gauge/value-block it renders as an unreadable few-pixel blob.
-    const heightClass = widget.type === 'value-block' ? 'h-40' :
-        widget.type === 'radar' ? 'h-96' :
-            widget.layout.h === 1 ? 'h-64' :
-                widget.layout.h === 2 ? 'h-[512px]' :
-                    'h-80';
+    // A 1/4-width block (value-block, radial-gauge, normal-distribution, or a
+    // radar left at its default width) is a square — height follows from the
+    // grid column's own width via aspect-ratio, not a separately-guessed pixel
+    // height. Wider widgets keep the original content/flex-driven sizing.
+    const isQuarterWidthBlock = widget.layout.w === 1;
+    const heightClass = widget.layout.h === 2 ? 'h-[512px]' : 'h-80';
 
     return (
         <>
@@ -425,11 +421,14 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                         </button>
                     </div>
                 </CardHeader>
-                {/* flex-1 sets flex-basis:0%, which silently overrides an explicit
-                    Tailwind height class sitting alongside it (the height never actually
-                    applies) — only grow-to-fill when maximized; otherwise use the literal
-                    heightClass so cards get the height they actually ask for. */}
-                <CardContent className={cn("p-0 overflow-auto", isMaximized ? "flex-1" : heightClass)}>
+                <CardContent className={cn(
+                    "p-0 overflow-auto",
+                    isMaximized
+                        ? "flex-1"
+                        : isQuarterWidthBlock
+                            ? "aspect-square"
+                            : cn("flex-1", heightClass)
+                )}>
                     {renderContent()}
                 </CardContent>
             </Card>

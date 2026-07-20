@@ -319,11 +319,15 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
                 />
             </div>
 
-            {/* Regression Analysis Table */}
+            {/* Regression Analysis Table — bounded + scrollable on its own, rather
+                than by the whole card growing to fit every trended tag. The card's
+                own height stays governed by the chart above it (matching the row's
+                other charts); this panel scrolls internally once it has more rows
+                than fit instead of pushing the card taller or clipping content. */}
             {includeTrendLines && Object.keys(trendMetadata).length > 0 && (
-                <div className="mt-6 border-t border-gray-100 pt-4">
+                <div className="mt-6 border-t border-gray-100 pt-4 flex-shrink-0">
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Trend Analysis (Linear Regression)</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-48 overflow-y-auto pr-1">
                         {Object.entries(trendMetadata).map(([tag, meta]) => (
                             <div key={tag} className="bg-gray-50 rounded p-3 border border-gray-100">
                                 <div className="flex items-center mb-2">
