@@ -133,8 +133,8 @@ export const RadarChart: React.FC<RadarChartProps> = ({
                         options={options}
                         series={series}
                         type="radar"
-                        height={squareSize}
-                        width={squareSize}
+                        height={squareSize*1.2}
+                        width={squareSize*1.2}
                     />
                 )}
             </div>
