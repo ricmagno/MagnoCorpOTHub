@@ -588,59 +588,71 @@ export class DataRetrievalService {
 
       // Use the standard AVEVA Historian Tag view joined with AnalogTag and EngineeringUnit
       // to get comprehensive metadata including units and ranges.
-      let query = `
-        SELECT 
-          t.TagName as name,
-          t.Description as description,
-          eu.Unit as units,
-          CASE 
-            WHEN t.TagType = 1 THEN 'analog'
-            WHEN t.TagType = 2 THEN 'discrete'
-            WHEN t.TagType = 3 THEN 'string'
-            ELSE 'unknown'
-          END as dataType,
-          t.DateCreated as lastUpdate,
-          at.MinEU as minValue,
-          at.MaxEU as maxValue
-        FROM Tag t
-        LEFT JOIN AnalogTag at ON t.TagName = at.TagName
-        LEFT JOIN EngineeringUnit eu ON at.EUKey = eu.EUKey
-        WHERE 1=1
-      `;
+      //
+      // AVEVA Historian is optional (see CLAUDE.md — the server runs in degraded mode
+      // without it), and TEVE tags below are entirely independent of it. So a missing/
+      // unreachable Historian must not take down the whole tag list — it should just mean
+      // "zero AVEVA tags", not "throw and lose the TEVE tags too".
+      let tagInfos: TagInfo[] = [];
+      try {
+        let query = `
+          SELECT
+            t.TagName as name,
+            t.Description as description,
+            eu.Unit as units,
+            CASE
+              WHEN t.TagType = 1 THEN 'analog'
+              WHEN t.TagType = 2 THEN 'discrete'
+              WHEN t.TagType = 3 THEN 'string'
+              ELSE 'unknown'
+            END as dataType,
+            t.DateCreated as lastUpdate,
+            at.MinEU as minValue,
+            at.MaxEU as maxValue
+          FROM Tag t
+          LEFT JOIN AnalogTag at ON t.TagName = at.TagName
+          LEFT JOIN EngineeringUnit eu ON at.EUKey = eu.EUKey
+          WHERE 1=1
+        `;
 
-      const params: Record<string, any> = {};
+        const params: Record<string, any> = {};
 
-      if (filter) {
-        dbLogger.debug(`Applying tag filter: ${filter}`);
-        // Use UPPER for case-insensitive search regardless of collation
-        // and COALESCE to safely handle NULL descriptions
-        query += ` AND (UPPER(t.TagName) LIKE UPPER(@filter) OR UPPER(COALESCE(t.Description, '')) LIKE UPPER(@filter))`;
-        params.filter = `%${filter}%`;
-      }
-
-      query += ` ORDER BY t.TagName`;
-
-      const result = await this.getConnection().executeQuery<any>(query, params);
-
-      // Transform to TagInfo format
-      const tagInfos: TagInfo[] = result.recordset.map(row => ({
-        name: row.name,
-        description: row.description || '',
-        units: row.units || '',
-        dataType: row.dataType,
-        lastUpdate: new Date(row.lastUpdate),
-        minValue: row.minValue,
-        maxValue: row.maxValue
-      }));
-
-      // Cache the result if caching is enabled (AVEVA tags only — see the fresh-fetch
-      // note on the cache-hit path above for why Tensor tags aren't cached here)
-      if (this.cacheService && tagInfos.length > 0) {
         if (filter) {
-          await this.cacheService.cacheFilteredTags(filter, tagInfos);
-        } else {
-          await this.cacheService.cacheTagList(tagInfos);
+          dbLogger.debug(`Applying tag filter: ${filter}`);
+          // Use UPPER for case-insensitive search regardless of collation
+          // and COALESCE to safely handle NULL descriptions
+          query += ` AND (UPPER(t.TagName) LIKE UPPER(@filter) OR UPPER(COALESCE(t.Description, '')) LIKE UPPER(@filter))`;
+          params.filter = `%${filter}%`;
         }
+
+        query += ` ORDER BY t.TagName`;
+
+        const result = await this.getConnection().executeQuery<any>(query, params);
+
+        // Transform to TagInfo format
+        tagInfos = result.recordset.map(row => ({
+          name: row.name,
+          description: row.description || '',
+          units: row.units || '',
+          dataType: row.dataType,
+          lastUpdate: new Date(row.lastUpdate),
+          minValue: row.minValue,
+          maxValue: row.maxValue
+        }));
+
+        // Cache the result if caching is enabled (AVEVA tags only — see the fresh-fetch
+        // note on the cache-hit path above for why Tensor tags aren't cached here)
+        if (this.cacheService && tagInfos.length > 0) {
+          if (filter) {
+            await this.cacheService.cacheFilteredTags(filter, tagInfos);
+          } else {
+            await this.cacheService.cacheTagList(tagInfos);
+          }
+        }
+      } catch (error) {
+        dbLogger.warn('AVEVA Historian tag list unavailable — continuing with TEVE tags only', {
+          error: error instanceof Error ? error.message : error,
+        });
       }
 
       const tensorTags = this.filterTensorTags(await this.getTensorTagList(), filter);

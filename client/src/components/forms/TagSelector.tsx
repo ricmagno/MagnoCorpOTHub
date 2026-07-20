@@ -135,12 +135,13 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
           setError('Failed to load tags');
         }
       } catch (err) {
-        console.warn('Failed to load tags from API, using fallback:', err);
-        const mockTags: TagInfo[] = [
-          { name: 'Temperature_01', description: 'Temperature sensor 1', units: '°C', dataType: 'analog', lastUpdate: new Date() },
-          { name: 'Pressure_01', description: 'Pressure sensor 1', units: 'PSI', dataType: 'analog', lastUpdate: new Date() },
-        ];
-        setAvailableTags(mockTags);
+        // Surface the real failure rather than masking it with fabricated tag
+        // names — silently swapping in fake data here previously made a genuine
+        // backend outage (e.g. AVEVA Historian unreachable) look like an empty
+        // or misconfigured tag catalog instead of an error worth investigating.
+        console.error('Failed to load tags from API:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load tags');
+        setAvailableTags([]);
       } finally {
         setLoading(false);
       }
