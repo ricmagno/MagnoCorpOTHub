@@ -322,6 +322,42 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                                                 </select>
                                             </div>
                                         </div>
+                                        {widget.type === 'radial-gauge' && (
+                                            <div className="space-y-1">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Gauge Range
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="Min (default 0)"
+                                                        value={widget.options?.minValue ?? ''}
+                                                        onChange={e => handleUpdateWidget(widget.id, {
+                                                            options: {
+                                                                ...widget.options,
+                                                                minValue: e.target.value === '' ? undefined : Number(e.target.value)
+                                                            }
+                                                        })}
+                                                    />
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="Max (default 100)"
+                                                        value={widget.options?.maxValue ?? ''}
+                                                        onChange={e => handleUpdateWidget(widget.id, {
+                                                            options: {
+                                                                ...widget.options,
+                                                                maxValue: e.target.value === '' ? undefined : Number(e.target.value)
+                                                            }
+                                                        })}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-gray-400">
+                                                    Overrides the tag's own range. Leave blank to use the AVEVA
+                                                    Historian engineering-unit range if configured, or 0-100 otherwise
+                                                    — required for TEVE tags, which have no range of their own.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">Tags</label>

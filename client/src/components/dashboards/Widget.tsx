@@ -237,11 +237,17 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
             const tagInfo = tagInfoMap[tagName];
 
             if (widget.type === 'radial-gauge') {
+                // Range priority: an explicit per-widget override (set in the dashboard
+                // editor — the only option for TEVE tags, which have no engineering-unit
+                // range of their own) beats the tag's AVEVA-derived AnalogTag min/max,
+                // which beats the 0-100 fallback for tags with neither.
+                const min = widget.options?.minValue ?? tagInfo?.minValue ?? 0;
+                const max = widget.options?.maxValue ?? tagInfo?.maxValue ?? 100;
                 return (
                     <RadialGauge
                         value={lastPoint?.value || 0}
-                        min={tagInfo?.minValue || 0}
-                        max={tagInfo?.maxValue || 100}
+                        min={min}
+                        max={max}
                         tagName={tagName}
                         unit={tagInfo?.units || ''}
                         description={lastPoint?.description || tagInfo?.description}
