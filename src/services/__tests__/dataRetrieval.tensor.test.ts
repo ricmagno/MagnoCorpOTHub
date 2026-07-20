@@ -1,5 +1,5 @@
 import { DataRetrievalService } from '../dataRetrieval';
-import { QualityCode, TimeRange } from '@/types/historian';
+import { QualityCode, RetrievalMode, TimeRange } from '@/types/historian';
 
 jest.mock('@/utils/logger', () => ({
   dbLogger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }
@@ -15,8 +15,15 @@ jest.mock('../historianConnection', () => ({
   }))
 }));
 
-jest.mock('../opcuaService', () => ({
-  opcuaService: { readVariable: jest.fn() }
+// dataRetrieval.ts imports opcuaManager from ./opcua/opcuaConnectionManager (not the
+// old ../opcuaService, removed in the multi-connection refactor). None of the tests
+// below exercise opcua: tag paths, but the real module must still be mocked so
+// importing DataRetrievalService doesn't pull in live OPC UA connection machinery.
+jest.mock('../opcua/opcuaConnectionManager', () => ({
+  opcuaManager: {
+    tryResolveTag: jest.fn(),
+    getProvider: jest.fn()
+  }
 }));
 
 import { teveConfigService } from '../teveConfigService';
@@ -140,6 +147,47 @@ describe('DataRetrievalService — TEVE routing', () => {
       await service.getTimeSeriesData('tensor:sys.Tag1', TIME_RANGE);
 
       expect(mockGetHistorianConnection).not.toHaveBeenCalled();
+    });
+
+    // Regression test: Widget.tsx sends limit: 1000000000000 for non-live (trend)
+    // widgets as a "no practical cap" sentinel — fine for AVEVA's SQL TOP, but
+    // TEVE's /teve/data route 400s on anything over 10,000. Forwarding the raw
+    // sentinel made trend widgets go blank with no visible error (the 400 was
+    // silently turned into []). Must clamp instead of passing it straight through.
+    it('clamps an oversized options.limit to TEVE_MAX_LIMIT instead of forwarding it raw', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ tag: 'sys.Tag1', count: 0, data: [] }) });
+
+      await service.getTimeSeriesData('tensor:sys.Tag1', TIME_RANGE, {
+        mode: RetrievalMode.Delta,
+        limit: 1_000_000_000_000
+      });
+
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(new URL(url).searchParams.get('limit')).toBe('10000');
+    });
+
+    it('still forces limit=1 for Live mode even when a larger limit is also supplied', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ tag: 'sys.Tag1', count: 0, data: [] }) });
+
+      await service.getTimeSeriesData('tensor:sys.Tag1', TIME_RANGE, {
+        mode: RetrievalMode.Live,
+        limit: 500
+      });
+
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(new URL(url).searchParams.get('limit')).toBe('1');
+    });
+
+    it('passes a within-range limit through unchanged', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ tag: 'sys.Tag1', count: 0, data: [] }) });
+
+      await service.getTimeSeriesData('tensor:sys.Tag1', TIME_RANGE, {
+        mode: RetrievalMode.Delta,
+        limit: 500
+      });
+
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(new URL(url).searchParams.get('limit')).toBe('500');
     });
   });
 
