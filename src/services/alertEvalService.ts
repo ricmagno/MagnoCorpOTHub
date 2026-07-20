@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { alertManagementService } from './alertManagementService';
 import { smsService } from './smsService';
+import { brandingService } from './brandingService';
 import { opcuaManager } from './opcua/opcuaConnectionManager';
 import { OpcuaDataValue } from '../types/opcua';
 import { AlertConfig } from '../types/alerts';
@@ -211,7 +212,7 @@ export class AlertEvalService {
                         .filter((p: any) => p && p.trim().length > 0) as string[];
                     if (phones.length === 0) return;
 
-                    const message = `🚨 ALARM: ${config.name || config.tagBase}! Triggered: ${alarmTypeStr}. Current PV: ${pvValue !== undefined ? pvValue : 'Unknown'}. Please check the system!`;
+                    const message = `${brandingService.getSmsPrefix()}🚨 ALARM: ${config.name || config.tagBase}! Triggered: ${alarmTypeStr}. Current PV: ${pvValue !== undefined ? pvValue : 'Unknown'}. Please check the system!`;
                     return smsService.sendSms(phones, message);
                 })
                 .catch(err => logger.error('Failed to send SMS for alarm', { error: err }));

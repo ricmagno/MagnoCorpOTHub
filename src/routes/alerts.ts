@@ -7,6 +7,7 @@ import { alertEvalService } from '@/services/alertEvalService';
 import { alertDeliveryConfigService } from '@/services/alertDeliveryConfigService';
 import { emailService } from '@/services/emailService';
 import { smsService } from '@/services/smsService';
+import { brandingService } from '@/services/brandingService';
 import { logger } from '@/utils/logger';
 
 const requireAdmin = requireRole('admin');
@@ -255,7 +256,7 @@ router.put('/delivery-config/sms', authenticateToken, requireAdmin, asyncHandler
 
 router.post('/delivery-config/sms/test', authenticateToken, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
     const { testRecipient } = z.object({ testRecipient: z.string().min(1, 'Phone number required') }).parse(req.body);
-    const sent = await smsService.sendSms([testRecipient], 'MagnoCorpOTHub — SMS configuration test message.');
+    const sent = await smsService.sendSms([testRecipient], `${brandingService.getSmsPrefix()}SMS configuration test message.`);
     res.json({ success: sent, message: sent ? 'Test SMS sent successfully' : 'Failed to send SMS — check API URL and token' });
 }));
 

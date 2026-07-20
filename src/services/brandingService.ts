@@ -108,6 +108,20 @@ class BrandingService {
     const parts = [s.companyName, s.appName].filter(Boolean);
     return parts.length > 0 ? parts.join(' ') : 'OT Hub';
   }
+
+  /**
+   * Short sender-identifying prefix for SMS, e.g. "[MagnoCorp - Kagome Plant] ".
+   * Deliberately just company + site (not appName) — SMS is billed per segment
+   * (160 GSM-7 chars, or 70 once any message contains a non-GSM-7 character like
+   * an emoji, which alarm SMS already does), so every extra word has a real cost.
+   * Returns '' when neither is configured, so an unbranded install's messages are
+   * unchanged rather than gaining an empty "[] " prefix.
+   */
+  getSmsPrefix(): string {
+    const s = this.getSettings();
+    const parts = [s.companyName, s.siteName].filter(Boolean);
+    return parts.length > 0 ? `[${parts.join(' - ')}] ` : '';
+  }
 }
 
 export const brandingService = new BrandingService();
