@@ -389,8 +389,10 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
     // own configured width rather than a per-type guessed pixel height: a 1/4
     // widget (1 grid column) is width:height = 1:1 — a true square, x by x. A
     // 1/2 widget (2 columns) is 2:1, so height = (2x)/2 = x — the same x. Same
-    // for 3/4 and full width. This keeps every card in a row the same height by
-    // construction, without special-casing individual widget types.
+    // for 3/4 and full width. This applies to the whole card (header included) —
+    // putting it on CardContent alone made the content area a square but let the
+    // header stack extra height on top, so the visible block (what the user
+    // actually sees) was still a portrait rectangle, not a square.
     const aspectClass = widget.layout.w === 1 ? 'aspect-square' :
         widget.layout.w === 2 ? 'aspect-[2/1]' :
             widget.layout.w === 3 ? 'aspect-[3/1]' :
@@ -402,7 +404,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                 "flex flex-col overflow-hidden transition-all duration-300",
                 isMaximized
                     ? "fixed inset-0 z-[100] m-4 md:m-8 shadow-2xl ring-2 ring-primary-500 bg-white"
-                    : "h-full relative"
+                    : cn("relative", aspectClass)
             )}>
                 <CardHeader className="py-2 px-4 flex-row items-center justify-between border-b border-gray-100 bg-gray-50/50">
                     <div className="flex flex-col min-w-0">
@@ -425,7 +427,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                         </button>
                     </div>
                 </CardHeader>
-                <CardContent className={cn("p-0 overflow-auto", isMaximized ? "flex-1" : aspectClass)}>
+                <CardContent className="p-0 overflow-auto flex-1">
                     {renderContent()}
                 </CardContent>
             </Card>
