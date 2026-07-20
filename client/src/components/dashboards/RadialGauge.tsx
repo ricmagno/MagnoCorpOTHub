@@ -106,7 +106,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
     const series = [clampedPercentage];
 
     return (
-        <div className="flex flex-col items-center justify-center h-full w-full relative">
+        <div className="flex flex-col h-full w-full relative">
             {/* Status indicator */}
             <div className={cn(
                 "absolute top-3 right-3 rounded-full border-2 border-white shadow-sm z-10",
@@ -114,59 +114,68 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
                 statusIcons[status]
             )} />
 
-            <div className="w-full h-full">
+            {/* Gauge ring + centered value overlay share this flexible section so the
+                footer below (tag name / range / description) always gets its own,
+                un-clipped space instead of being pulled over the ring with a negative
+                margin — that overlap trick didn't scale: at full-screen size the ring
+                grows far more than the fixed offset compensated for, pushing the
+                footer text off the bottom of the viewport. */}
+            <div className="relative flex-1 min-h-0">
+                {/* Remount on maximize toggle: ApexCharts measures its container once at
+                    mount and doesn't re-observe a CSS-driven resize (as opposed to a
+                    real window resize event), so it stayed stuck at its small-widget
+                    size when maximized without this. */}
                 <Chart
+                    key={isMaximized ? 'maximized' : 'normal'}
                     options={options}
                     series={series}
                     type="radialBar"
                     height={height}
                     width="100%"
                 />
+
+                <div className={cn(
+                    "absolute inset-0 flex flex-col items-center justify-center pointer-events-none",
+                    !isMaximized && "mt-[-10px]"
+                )}>
+                    <div className="flex items-baseline justify-center space-x-1">
+                        <span className={cn(
+                            "font-black tracking-tighter text-gray-900 leading-none",
+                            isMaximized ? "text-8xl" : "text-5xl"
+                        )}>
+                            {percentage.toFixed(1)}
+                        </span>
+                        <span className={cn(
+                            "font-bold text-gray-400",
+                            isMaximized ? "text-3xl" : "text-base"
+                        )}>
+                            %
+                        </span>
+                    </div>
+                    {/* Raw value + unit — the gauge fill and the big number above are both
+                        relative to the configured range, so the actual reading is shown
+                        here for reference. */}
+                    <div className={cn(
+                        "font-semibold text-gray-400",
+                        isMaximized ? "text-2xl mt-1" : "text-sm mt-0.5"
+                    )}>
+                        {value.toFixed(1)}{unit ? ` ${unit}` : ''}
+                    </div>
+                </div>
             </div>
 
-            {/* Custom Overlay for Value and Unit */}
+            {/* Footer: tag name, then range, then description — normal flow, so it
+                always has its own space and is never clipped or pushed off-screen. */}
             <div className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center pointer-events-none",
-                !isMaximized && "mt-[-10px]"
+                "w-full text-center space-y-1 flex-shrink-0",
+                isMaximized ? "pb-10" : "pb-2"
             )}>
-                <div className="flex items-baseline justify-center space-x-1">
-                    <span className={cn(
-                        "font-black tracking-tighter text-gray-900 leading-none",
-                        isMaximized ? "text-8xl" : "text-4xl"
-                    )}>
-                        {percentage.toFixed(1)}
-                    </span>
-                    <span className={cn(
-                        "font-bold text-gray-400",
-                        isMaximized ? "text-3xl" : "text-sm"
-                    )}>
-                        %
-                    </span>
-                </div>
-                {/* Raw value + unit — the gauge fill and the big number above are both
-                    relative to the configured range, so the actual reading is shown
-                    here for reference. */}
-                <div className={cn(
-                    "font-semibold text-gray-400",
-                    isMaximized ? "text-2xl mt-1" : "text-xs mt-0.5"
-                )}>
-                    {value.toFixed(1)}{unit ? ` ${unit}` : ''}
-                </div>
-
-                {/* Tag Name styled like Radial Gauge pattern */}
                 <span className={cn(
-                    "font-semibold text-gray-400 truncate max-w-[80%] px-2 mt-2",
+                    "font-semibold text-gray-400 truncate max-w-[90%] px-2 block mx-auto",
                     isMaximized ? "text-xl" : "text-[10px]"
                 )} title={tagName}>
                     {tagDisplayName(tagName)}
                 </span>
-            </div>
-
-            {/* Footer containing range and description */}
-            <div className={cn(
-                "w-full text-center space-y-1",
-                isMaximized ? "mt-[-60px] pb-10" : "mt-[-20px] pb-2"
-            )}>
                 <div className={cn(
                     "text-gray-400 font-medium",
                     isMaximized ? "text-base" : "text-[10px]"
