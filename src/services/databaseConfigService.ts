@@ -215,6 +215,13 @@ export class DatabaseConfigService {
           encrypt: config.encrypt && !this.isIPAddress(config.host),
           trustServerCertificate: config.trustServerCertificate || this.isIPAddress(config.host),
           enableArithAbort: true,
+          // AVEVA Historian's DATETIME columns (Live view and History view alike)
+          // are naive local-server-wall-clock values, not UTC — tedious's useUTC
+          // default (true) reads them via getUTC*() with zero conversion, which
+          // silently mislabels a local timestamp as UTC and shifts every AVEVA
+          // timestamp by the server's UTC offset. false makes tedious read the raw
+          // value as local time and convert it to a true UTC instant instead.
+          useUTC: false,
           // Only set cryptoCredentialsDetails for hostnames
           ...(config.encrypt && !this.isIPAddress(config.host) && {
             cryptoCredentialsDetails: {
@@ -586,6 +593,13 @@ export class DatabaseConfigService {
         encrypt: config.encrypt && !this.isIPAddress(config.host),
         trustServerCertificate: config.trustServerCertificate || this.isIPAddress(config.host),
         enableArithAbort: true,
+        // See the identical option in the test-connection pool above for why this
+        // is required: AVEVA Historian returns naive local-server-time DATETIME
+        // values, and tedious's default (useUTC: true) mislabels them as UTC
+        // without converting, shifting every AVEVA timestamp by the server's UTC
+        // offset (confirmed live: a "Live" view read showed a timestamp ~10 hours
+        // in the future relative to true UTC, matching the AEST offset exactly).
+        useUTC: false,
         ...(config.encrypt && !this.isIPAddress(config.host) && {
           cryptoCredentialsDetails: {
             minVersion: 'TLSv1.2'
