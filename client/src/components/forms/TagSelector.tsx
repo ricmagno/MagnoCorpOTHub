@@ -98,6 +98,13 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
 }) {
   const [availableTags, setAvailableTags] = useState<TagInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  // AVEVA Historian and TEVE tags share the "Historian" tab's picker (both are merged
+  // by the backend into one /data/tags response). The picker's dropdown only ever
+  // shows the first N results — with a real AVEVA install contributing hundreds of
+  // tags ahead of TEVE's handful in the merged list, TEVE tags were being crowded out
+  // of that window entirely and effectively became unreachable without typing a search
+  // term that happened to match one. This filter lets a user isolate either source.
+  const [historianSource, setHistorianSource] = useState<'all' | 'aveva' | 'teve'>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -207,15 +214,26 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter tags based on search term
+  // AVEVA/TEVE tag counts, for the source-filter control's labels.
+  const historianSourceCounts = useMemo(() => {
+    const teve = availableTags.filter(tag => tag.name.startsWith('tensor:')).length;
+    return { all: availableTags.length, aveva: availableTags.length - teve, teve };
+  }, [availableTags]);
+
+  // Filter tags based on source (AVEVA vs TEVE) and search term
   const filteredTags = useMemo(() => {
-    if (!searchTerm) return availableTags;
+    const bySource = historianSource === 'all'
+      ? availableTags
+      : availableTags.filter(tag =>
+          historianSource === 'teve' ? tag.name.startsWith('tensor:') : !tag.name.startsWith('tensor:')
+        );
+    if (!searchTerm) return bySource;
     const term = searchTerm.toLowerCase();
-    return availableTags.filter(tag =>
+    return bySource.filter(tag =>
       tag.name.toLowerCase().includes(term) ||
       tag.description.toLowerCase().includes(term)
     );
-  }, [availableTags, searchTerm]);
+  }, [availableTags, historianSource, searchTerm]);
 
   // Filter OPC UA tags based on search term
   const filteredOpcuaTags = useMemo(() => {
@@ -342,6 +360,32 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
 
         {tagSourceTab === 'historian' ? (
           <>
+            {/* Source filter — only shown once there's an actual mix to filter, so a
+                TEVE-only or AVEVA-only deployment doesn't see a pointless control. */}
+            {historianSourceCounts.teve > 0 && historianSourceCounts.aveva > 0 && (
+              <div className="flex gap-1.5">
+                {([
+                  ['all', `All (${historianSourceCounts.all})`],
+                  ['aveva', `AVEVA (${historianSourceCounts.aveva})`],
+                  ['teve', `TEVE (${historianSourceCounts.teve})`],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setHistorianSource(value)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                      historianSource === value
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Search input */}
             <div className="relative tag-selector-dropdown">
               <Input
@@ -364,7 +408,7 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
                     <div className="p-3 text-center text-gray-500">Loading tags...</div>
                   ) : (
                     <>
-                      {unselectedTags.slice(0, 20).map((tag) => {
+                      {unselectedTags.slice(0, 50).map((tag) => {
                         const { displayName } = classifyTag(tag.name);
                         return (
                           <button
@@ -386,6 +430,12 @@ export const TagSelector: React.FC<TagSelectorProps> = React.memo(function TagSe
                           </button>
                         );
                       })}
+
+                      {unselectedTags.length > 50 && (
+                        <div className="px-3 py-2 text-xs text-gray-400 text-center bg-gray-50">
+                          Showing 50 of {unselectedTags.length} — type to search for more
+                        </div>
+                      )}
 
                       {searchTerm && !unselectedTags.some(t => t.name.toLowerCase() === searchTerm.toLowerCase()) && (
                         <button
