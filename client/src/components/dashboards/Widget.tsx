@@ -8,11 +8,12 @@ import { Button } from '../ui/Button';
 import { apiService } from '../../services/api';
 import { formatYValue } from '../charts/chartUtils';
 import { InteractiveChart } from '../charts/InteractiveChart';
-import { TimeSeriesData, TagInfo } from '../../types/api';
+import { TimeSeriesData, TagInfo, StatisticsResult } from '../../types/api';
 import { useMemo } from 'react';
 import { RadialGauge } from './RadialGauge';
 import { ValueBlock } from './ValueBlock';
 import { RadarChart } from '../charts/RadarChart';
+import { NormalDistributionWidget } from './NormalDistributionWidget';
 
 interface WidgetProps {
     widget: WidgetConfig;
@@ -31,6 +32,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
     const [tagInfoMap, setTagInfoMap] = useState<Record<string, TagInfo>>({});
     const [isMaximized, setIsMaximized] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [distributionStats, setDistributionStats] = useState<StatisticsResult | null>(null);
 
     const getRangeSeconds = (range?: string) => {
         switch (range) {
@@ -45,7 +47,12 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
         }
     };
 
-    const isLiveWidget = widget.type === 'radial-gauge' || widget.type === 'value-block' || widget.type === 'radar';
+    // normal-distribution is "live" for the purpose of its current-value marker (1s
+    // poll, same as the other small-block widgets) — its bell curve itself comes from
+    // a separate statistics fetch below, on the dashboard's normal refresh cadence,
+    // not every second (recomputing a whole distribution that often would be wasteful
+    // and the historical shape doesn't change meaningfully within a second anyway).
+    const isLiveWidget = widget.type === 'radial-gauge' || widget.type === 'value-block' || widget.type === 'radar' || widget.type === 'normal-distribution';
 
     const fetchData = async (silent = false) => {
         if (widget.tags.length === 0) return;
@@ -153,6 +160,29 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
     useEffect(() => {
         fetchData();
     }, [widget.tags, refreshToggle, globalTimeRange]);
+
+    // Mean/stdDev for the normal-distribution widget's bell curve — fetched over the
+    // dashboard's Time Range on the normal refresh cadence (not the 1s live poll that
+    // handles its current-value marker above).
+    useEffect(() => {
+        if (widget.type !== 'normal-distribution' || widget.tags.length === 0) return;
+
+        const endTime = new Date();
+        let startTime = new Date(endTime.getTime() - 60 * 60 * 1000);
+        if (globalTimeRange?.relativeRange) {
+            startTime = new Date(endTime.getTime() - getRangeSeconds(globalTimeRange.relativeRange) * 1000);
+        } else if (globalTimeRange?.startTime) {
+            startTime = new Date(globalTimeRange.startTime);
+        }
+
+        apiService.getStatistics(widget.tags[0], startTime, endTime)
+            .then(response => {
+                if (response.success && response.data) {
+                    setDistributionStats(response.data);
+                }
+            })
+            .catch(err => console.error('Failed to fetch distribution statistics:', err));
+    }, [widget.type, widget.tags, refreshToggle, globalTimeRange]);
 
     // Set up auto-refresh for live widgets (1 second)
     useEffect(() => {
@@ -272,6 +302,29 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
             );
         }
 
+        if (widget.type === 'normal-distribution') {
+            const tagName = widget.tags[0];
+            const tagData = dataPoints[tagName] || [];
+            const lastPoint = tagData[tagData.length - 1];
+            const tagInfo = tagInfoMap[tagName];
+
+            return (
+                <div className="h-full w-full">
+                    <NormalDistributionWidget
+                        tagName={tagName}
+                        mean={distributionStats?.average ?? 0}
+                        stdDev={distributionStats?.standardDeviation ?? 0}
+                        sampleCount={distributionStats?.count ?? 0}
+                        currentValue={lastPoint?.value ?? null}
+                        unit={tagInfo?.units || ''}
+                        description={tagInfo?.description}
+                        status={lastPoint?.quality === 'Good' || lastPoint?.quality === 0 || lastPoint?.quality === 16 || lastPoint?.quality === 133 ? 'good' : 'bad'}
+                        isMaximized={isMaximized}
+                    />
+                </div>
+            );
+        }
+
         if (widget.type === 'radar') {
             const radarData: Record<string, number> = {};
             let isAnyBad = false;
@@ -317,7 +370,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                     enableGuideLines={false}
                     includeTrendLines={widget.type === 'trend'}
                     title={undefined}
-                    className="p-2 flex-1"
+                    className="py-2 px-4 flex-1"
                     chartClassName="bg-transparent border-0 shadow-none p-0"
                 />
                 {loading && data.length > 0 && (
@@ -341,8 +394,10 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
     return (
         <>
             <Card className={cn(
-                "h-full flex flex-col overflow-hidden transition-all duration-300",
-                isMaximized ? "fixed inset-0 z-[100] m-4 md:m-8 shadow-2xl ring-2 ring-primary-500 bg-white" : "relative"
+                "flex flex-col overflow-hidden transition-all duration-300",
+                isMaximized
+                    ? "fixed inset-0 z-[100] m-4 md:m-8 shadow-2xl ring-2 ring-primary-500 bg-white"
+                    : "h-full relative"
             )}>
                 <CardHeader className="py-2 px-4 flex-row items-center justify-between border-b border-gray-100 bg-gray-50/50">
                     <div className="flex flex-col min-w-0">

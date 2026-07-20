@@ -33,10 +33,17 @@ import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { TagSelector } from '../forms/TagSelector';
-import { DashboardConfig, WidgetConfig } from '../../types/dashboard';
+import { DashboardConfig, WidgetConfig, WidgetType } from '../../types/dashboard';
 import { apiService } from '../../services/api';
 import { useToast } from '../../hooks/useToast';
 const generateId = () => Math.random().toString(36).substring(2, 11);
+
+// Widget types forced to a 1/4-width block (w:1, h:1) rather than the normal
+// half/full-width chart sizing. Shared constant so every place that needs to know
+// "is this a small widget" (layout sanitization, add/type-switch enforcement, the
+// Width dropdown's option set) stays in sync — a type only needs to be added here once.
+const SMALL_WIDGET_TYPES: WidgetType[] = ['value-block', 'radial-gauge', 'normal-distribution'];
+const isSmallWidgetType = (type: WidgetType): boolean => SMALL_WIDGET_TYPES.includes(type);
 
 interface DashboardEditorProps {
     dashboardId?: string | null;
@@ -74,7 +81,7 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
                         // Sanitize layout for legacy data
                         if (loadedConfig.widgets) {
                             loadedConfig.widgets = loadedConfig.widgets.map((w: WidgetConfig) => {
-                                const isSmall = w.type === 'value-block' || w.type === 'radial-gauge';
+                                const isSmall = isSmallWidgetType(w.type);
                                 if (isSmall && w.layout.w !== 1) {
                                     return { ...w, layout: { ...w.layout, w: 1, h: 1 } };
                                 }
@@ -123,8 +130,8 @@ export const DashboardEditor: React.FC<DashboardEditorProps> = ({
 
                 // Enforce width rules when type changes
                 if (updates.type) {
-                    const isSmallWidget = updates.type === 'value-block' || updates.type === 'radial-gauge';
-                    const wasSmallWidget = w.type === 'value-block' || w.type === 'radial-gauge';
+                    const isSmallWidget = isSmallWidgetType(updates.type);
+                    const wasSmallWidget = isSmallWidgetType(w.type);
 
                     if (isSmallWidget) {
                         updated.layout = { ...updated.layout, w: 1, h: 1 };
@@ -408,6 +415,7 @@ const SortableWidgetCard: React.FC<SortableWidgetCardProps> = ({ widget, index, 
                                 <option value="radial-gauge">Radial Gauge %</option>
                                 <option value="value-block">Value Block</option>
                                 <option value="radar">Radar Chart</option>
+                                <option value="normal-distribution">Standard Normal Distribution</option>
                             </select>
                         </div>
                         <div className="space-y-1">
@@ -419,7 +427,7 @@ const SortableWidgetCard: React.FC<SortableWidgetCardProps> = ({ widget, index, 
                                     layout: { ...widget.layout, w: parseInt(e.target.value) as any }
                                 })}
                             >
-                                {widget.type === 'value-block' || widget.type === 'radial-gauge' ? (
+                                {isSmallWidgetType(widget.type) ? (
                                     <>
                                         <option value={1}>1/4 (Block)</option>
                                     </>

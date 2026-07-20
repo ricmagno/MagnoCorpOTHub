@@ -218,7 +218,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div
                         key={widget.id}
                         className={
-                            (widget.type === 'value-block' || widget.type === 'radial-gauge') ? 'col-span-1' :
+                            (widget.type === 'value-block' || widget.type === 'radial-gauge' || widget.type === 'normal-distribution') ? 'col-span-1' :
                                 widget.layout.w === 4 ? 'col-span-1 md:col-span-2 lg:col-span-4' :
                                     widget.layout.w === 3 ? 'col-span-1 md:col-span-2 lg:col-span-3' :
                                         widget.layout.w === 2 ? 'col-span-1 md:col-span-2' :
