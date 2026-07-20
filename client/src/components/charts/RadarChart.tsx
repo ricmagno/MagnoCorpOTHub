@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
 import { cn } from '../../utils/cn';
@@ -7,7 +7,6 @@ import { tagDisplayName } from '../../utils/tagDisplay';
 interface RadarChartProps {
     data: Record<string, number>;
     title?: string;
-    height?: number | string;
     className?: string;
     status?: 'good' | 'bad' | 'uncertain';
     isMaximized?: boolean;
@@ -26,7 +25,6 @@ function shortAxisLabel(tagName: string, maxLen = 16): string {
 export const RadarChart: React.FC<RadarChartProps> = ({
     data,
     title,
-    height = '100%',
     className = '',
     status = 'good',
     isMaximized = false
@@ -36,6 +34,33 @@ export const RadarChart: React.FC<RadarChartProps> = ({
         bad: 'bg-red-500',
         uncertain: 'bg-amber-500'
     };
+
+    // ApexCharts' radar plot is inherently circular, sizing its drawing radius
+    // off the *smaller* of width/height and leaving the rest as blank space —
+    // most cards here are wider than tall (e.g. a half-width widget is 2:1), so
+    // without constraining it to a square it renders tiny with dead space on
+    // both sides. CSS alone (aspect-ratio wrapper) isn't reliable here: react-
+    // apexcharts reads its container's width via width="100%" at mount, and
+    // that measurement can race the browser's own aspect-ratio layout pass,
+    // silently falling back to ApexCharts' hardcoded 300px default instead of
+    // the real size. Measuring directly with ResizeObserver and passing
+    // explicit pixel numbers sidesteps the race, and — as a bonus — reacts
+    // correctly to the maximize toggle on its own, no forced remount needed.
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [squareSize, setSquareSize] = useState(0);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const measure = () => {
+            const { width, height } = el.getBoundingClientRect();
+            setSquareSize(Math.floor(Math.min(width, height)));
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     const rawTags = Object.keys(data);
     const categories = rawTags.map(tag => shortAxisLabel(tag, isMaximized ? 24 : 16));
@@ -102,18 +127,17 @@ export const RadarChart: React.FC<RadarChartProps> = ({
                 statusIcons[status]
             )} />
 
-            {/* ApexCharts sizes itself once at mount and doesn't re-observe container
-                resizes from a CSS-driven change (as opposed to a real window resize
-                event) — remounting on maximize toggle forces it to measure the new,
-                much larger container instead of staying stuck at its original size. */}
-            <Chart
-                key={isMaximized ? 'maximized' : 'normal'}
-                options={options}
-                series={series}
-                type="radar"
-                height={height}
-                width="100%"
-            />
+            <div ref={containerRef} className="h-full w-full flex items-center justify-center">
+                {squareSize > 0 && (
+                    <Chart
+                        options={options}
+                        series={series}
+                        type="radar"
+                        height={squareSize}
+                        width={squareSize}
+                    />
+                )}
+            </div>
 
             {title && (
                 <span className="sr-only">{title}</span>
