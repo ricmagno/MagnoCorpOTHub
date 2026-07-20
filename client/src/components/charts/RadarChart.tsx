@@ -12,16 +12,6 @@ interface RadarChartProps {
     isMaximized?: boolean;
 }
 
-// Axis category labels are raw tag names, some of which (full OPC UA node IDs)
-// run 30-40+ chars — ApexCharts shrinks the polygon to make room for whatever
-// space the labels need, so long labels were crushing the plot down to a few
-// pixels. Truncating keeps the shape readable; the full name is still on the
-// card's tooltip/title via the underlying (untruncated) data.
-function shortAxisLabel(tagName: string, maxLen = 16): string {
-    const display = tagDisplayName(tagName);
-    return display.length > maxLen ? `${display.slice(0, maxLen - 1)}…` : display;
-}
-
 export const RadarChart: React.FC<RadarChartProps> = ({
     data,
     title,
@@ -63,7 +53,9 @@ export const RadarChart: React.FC<RadarChartProps> = ({
     }, []);
 
     const rawTags = Object.keys(data);
-    const categories = rawTags.map(tag => shortAxisLabel(tag, isMaximized ? 24 : 16));
+    // Full tag names, not truncated — the card is now sized square off its own
+    // width (see the Widget.tsx radar exception), giving axis labels real room.
+    const categories = rawTags.map(tag => tagDisplayName(tag));
     const series = [{
         name: 'Value',
         data: Object.values(data),
@@ -133,8 +125,8 @@ export const RadarChart: React.FC<RadarChartProps> = ({
                         options={options}
                         series={series}
                         type="radar"
-                        height={squareSize}
-                        width={squareSize}
+                        height={squareSize*1}
+                        width={squareSize*1}
                     />
                 )}
             </div>
