@@ -153,6 +153,19 @@ async function fetchWithRetry<T>(
   options?: RequestInit,
   maxRetries: number = 3
 ): Promise<T> {
+  // Only GET is safe to retry blindly. None of this app's POST endpoints are
+  // idempotent (e.g. dashboard save always inserts a new version row with no
+  // dedup key) — retrying one after a client-side timeout risks the original
+  // request having actually succeeded server-side, so the "retry" becomes a
+  // second, independent write. A slow-but-successful save followed by a
+  // retried duplicate has silently clobbered saved state before; write
+  // requests get exactly one attempt so a failure surfaces instead of
+  // quietly duplicating data.
+  const method = (options?.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    return fetchApi<T>(endpoint, options);
+  }
+
   let lastError: ApiError;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
