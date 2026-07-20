@@ -385,12 +385,16 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
         );
     };
 
-    // A 1/4-width block (value-block, radial-gauge, normal-distribution, or a
-    // radar left at its default width) is a square — height follows from the
-    // grid column's own width via aspect-ratio, not a separately-guessed pixel
-    // height. Wider widgets keep the original content/flex-driven sizing.
-    const isQuarterWidthBlock = widget.layout.w === 1;
-    const heightClass = widget.layout.h === 2 ? 'h-[512px]' : 'h-80';
+    // Every widget shares one row-height unit x, driven by aspect-ratio off its
+    // own configured width rather than a per-type guessed pixel height: a 1/4
+    // widget (1 grid column) is width:height = 1:1 — a true square, x by x. A
+    // 1/2 widget (2 columns) is 2:1, so height = (2x)/2 = x — the same x. Same
+    // for 3/4 and full width. This keeps every card in a row the same height by
+    // construction, without special-casing individual widget types.
+    const aspectClass = widget.layout.w === 1 ? 'aspect-square' :
+        widget.layout.w === 2 ? 'aspect-[2/1]' :
+            widget.layout.w === 3 ? 'aspect-[3/1]' :
+                'aspect-[4/1]';
 
     return (
         <>
@@ -421,14 +425,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                         </button>
                     </div>
                 </CardHeader>
-                <CardContent className={cn(
-                    "p-0 overflow-auto",
-                    isMaximized
-                        ? "flex-1"
-                        : isQuarterWidthBlock
-                            ? "aspect-square"
-                            : cn("flex-1", heightClass)
-                )}>
+                <CardContent className={cn("p-0 overflow-auto", isMaximized ? "flex-1" : aspectClass)}>
                     {renderContent()}
                 </CardContent>
             </Card>
