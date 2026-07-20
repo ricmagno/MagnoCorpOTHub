@@ -134,7 +134,7 @@ export const RadialGauge: React.FC<RadialGaugeProps> = ({
                         "font-black tracking-tighter text-gray-900 leading-none",
                         isMaximized ? "text-8xl" : "text-4xl"
                     )}>
-                        {percentage.toFixed(0)}
+                        {percentage.toFixed(1)}
                     </span>
                     <span className={cn(
                         "font-bold text-gray-400",
