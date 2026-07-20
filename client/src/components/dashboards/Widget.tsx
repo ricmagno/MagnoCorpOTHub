@@ -309,7 +309,7 @@ export const Widget: React.FC<WidgetProps> = ({ widget, refreshToggle, globalTim
                     height="100%"
                     displayMode="multi"
                     enableGuideLines={false}
-                    includeTrendLines={true}
+                    includeTrendLines={widget.type === 'trend'}
                     title={undefined}
                     className="p-2 flex-1"
                     chartClassName="bg-transparent border-0 shadow-none p-0"
