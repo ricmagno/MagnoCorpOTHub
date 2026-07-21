@@ -94,7 +94,7 @@ const CronBuilderComponent: React.FC<CronBuilderProps> = ({
           </label>
           <button
             type="button"
-            className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+            className="text-primary-600 hover:text-primary-800 text-xs flex items-center gap-1"
             onClick={() => window.open('/schedules/cron-guide', '_blank')}
             aria-label="Open cron expression guide in new tab"
           >

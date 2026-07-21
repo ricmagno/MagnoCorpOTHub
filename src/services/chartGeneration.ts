@@ -968,9 +968,11 @@ export class ChartGenerationService {
           animation: false,
           plugins: {
             title: {
-              display: true,
+              // Only titled when the caller asks for one — PDF report cards carry
+              // their own header, so an internal title would duplicate it.
+              display: !!options.title,
               text: [
-                `${tagDisplayName(tagName)} - Statistical Process Control Chart`,
+                options.title || '',
                 `σ = ${spcMetrics.stdDev.toFixed(2)}${capabilityInfo}`
               ],
               font: {

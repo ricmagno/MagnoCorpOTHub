@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUp, ArrowDown, Download, Loader2 } from 'lucide-react';
 import { TimeSeriesData } from '../../types/api';
 import { QualityIndicator } from './QualityIndicator';
+import { Button } from '../ui/Button';
 import { PaginationControls } from './PaginationControls';
 import {
   formatTimestamp,
@@ -159,19 +160,15 @@ export const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
       {/* Table header with export button */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">Data Preview</h3>
-        <button
+        <Button
+          size="sm"
           onClick={handleExport}
-          disabled={isExporting}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          loading={isExporting}
           aria-label="Export data to CSV"
         >
-          {isExporting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
+          {!isExporting && <Download className="w-4 h-4 mr-2" />}
           <span className="hidden sm:inline">Export CSV</span>
-        </button>
+        </Button>
       </div>
 
       {/* Desktop Table View */}
@@ -277,7 +274,7 @@ export const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
                 <span className="text-xs text-gray-500">
                   {formatTimestamp(row.timestamp)}
                 </span>
-                <span className="text-sm font-mono font-bold text-blue-700">
+                <span className="text-sm font-mono font-bold text-primary-700">
                   {formatYValue(row.value)}
                 </span>
               </div>

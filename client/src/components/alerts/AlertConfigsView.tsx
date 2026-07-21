@@ -367,7 +367,7 @@ export const AlertConfigsView: React.FC = () => {
                                             <div className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded w-fit">{config.tagBase}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center text-sm font-medium text-blue-700">
+                                            <div className="flex items-center text-sm font-medium text-primary-700">
                                                 <Users className="h-3 w-3 mr-1" />
                                                 {getListName(config.alertListId)}
                                             </div>

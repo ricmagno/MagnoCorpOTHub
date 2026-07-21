@@ -247,7 +247,7 @@ export const AlertPatternsView: React.FC = () => {
                             <CardContent>
                                 <div className="text-sm space-y-2 text-gray-600">
                                     <div className="grid grid-cols-2 pb-2 gap-2 text-xs font-mono bg-gray-50 p-2 rounded">
-                                        <div>PV: <span className="text-blue-600">.{pattern.pvSuffix}</span></div>
+                                        <div>PV: <span className="text-primary-600">.{pattern.pvSuffix}</span></div>
                                         <div>Events: </div>
                                         <div>HH: <span className="text-red-600">.{pattern.hhEventSuffix}</span></div>
                                         <div>H:  <span className="text-orange-500">.{pattern.hEventSuffix}</span></div>

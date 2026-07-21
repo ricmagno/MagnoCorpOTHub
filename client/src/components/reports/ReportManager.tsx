@@ -17,6 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { ReportConfig } from '../../types/api';
+import { Button } from '../ui/Button';
 
 interface ReportManagerProps {
   currentConfig?: ReportConfig;
@@ -198,22 +199,16 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
           <h2 className="text-lg font-semibold text-gray-900">Report Manager</h2>
           <div className="flex space-x-2">
             {onNew && (
-              <button
-                onClick={onNew}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
+              <Button size="sm" onClick={onNew}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Report
-              </button>
+              </Button>
             )}
             {currentConfig && onSave && (
-              <button
-                onClick={() => setShowSaveDialog(true)}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)}>
                 <Save className="w-4 h-4 mr-2" />
                 Save Current
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -228,7 +223,7 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
               placeholder="Search reports..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
 
@@ -287,7 +282,7 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
       <div className="p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             <span className="ml-2 text-gray-600">Loading reports...</span>
           </div>
         ) : filteredReports.length === 0 ? (
@@ -345,7 +340,7 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
                   <div className="flex items-center space-x-2 ml-4">
                     <button
                       onClick={() => onLoad?.(report)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md"
                       title="Load Report"
                     >
                       <FolderOpen className="w-4 h-4" />
@@ -383,7 +378,7 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
                   value={saveForm.name}
                   onChange={(e) => setSaveForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder={currentConfig?.name || 'Enter report name'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -396,7 +391,7 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
                   onChange={(e) => setSaveForm(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Optional description"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -412,24 +407,18 @@ export const ReportManager: React.FC<ReportManagerProps> = ({
                     tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
                   }))}
                   placeholder="e.g., daily, metrics, production"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowSaveDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
-              >
+              </Button>
+              <Button size="sm" onClick={handleSave}>
                 Save
-              </button>
+              </Button>
             </div>
           </div>
         </div>

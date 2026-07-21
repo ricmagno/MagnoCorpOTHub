@@ -386,7 +386,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
                 {config.name}
               </h3>
               {loading && (
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <Loader2 className="w-4 h-4 animate-spin text-primary-600" />
               )}
             </div>
 
@@ -458,7 +458,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
             <button
               onClick={loadPreviewData}
               disabled={loading || !config.tags?.length}
-              className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-md hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
@@ -476,7 +476,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
             {onEdit && (
               <button
                 onClick={() => onEdit(config)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Edit
               </button>
@@ -630,7 +630,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
                   <p className="text-xs text-blue-200 mt-0.5">Statistical analysis and data distribution for process metrics</p>
                 </div>
               </div>
-              <span className="text-xs text-blue-100 bg-blue-900/40 px-2.5 py-1 rounded-full font-medium">
+              <span className="text-xs text-primary-100 bg-primary-900/40 px-2.5 py-1 rounded-full font-medium">
                 {Object.keys(statistics).length} tag{Object.keys(statistics).length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -737,7 +737,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
               <TrendingUp className="w-4 h-4 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Statistics Summary will appear here</p>
-                <p className="text-xs text-blue-600 mt-0.5">Query data first to see the statistical breakdown of your selected tags.</p>
+                <p className="text-xs text-primary-600 mt-0.5">Query data first to see the statistical breakdown of your selected tags.</p>
               </div>
             </div>
           </div>
@@ -819,7 +819,7 @@ export const ReportPreview = React.forwardRef<ReportPreviewRef, ReportPreviewPro
               <BarChart3 className="w-12 h-12 text-blue-400" />
               <div>
                 <h4 className="text-sm font-medium text-blue-800">Ready to Query Data</h4>
-                <p className="text-sm text-blue-700 mt-1">
+                <p className="text-sm text-primary-700 mt-1">
                   Select tags and time range, then click "Query Data" to preview your report data.
                 </p>
               </div>

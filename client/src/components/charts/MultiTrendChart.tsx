@@ -340,7 +340,7 @@ export const MultiTrendChart: React.FC<MultiTrendChartProps> = ({
                                 <div className="space-y-1 font-mono text-[10px]">
                                     <div className="flex items-center">
                                         <span className="text-gray-500 w-24">Equation:</span>
-                                        <span className="text-blue-600 font-bold">{meta.equation}</span>
+                                        <span className="text-primary-600 font-bold">{meta.equation}</span>
                                     </div>
                                     <div className="flex items-center">
                                         <span className="text-gray-500 w-24">R²:</span>

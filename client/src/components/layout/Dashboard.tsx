@@ -1096,8 +1096,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ className }) => {
                         </div>
                         <div className="flex items-center space-x-4">
                           {savedReportsLoading && (
-                            <div className="flex items-center space-x-2 text-blue-600">
-                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <div className="flex items-center space-x-2 text-primary-600">
+                              <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
                               <span className="text-sm">Loading reports...</span>
                             </div>
                           )}

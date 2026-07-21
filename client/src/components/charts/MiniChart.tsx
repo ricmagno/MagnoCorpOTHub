@@ -272,7 +272,7 @@ export const MiniChart: React.FC<MiniChartProps> = ({
         {statistics && showAxis && (
           <div className="flex flex-col items-end flex-shrink-0 ml-4">
             <div className="flex items-center space-x-2 text-[10px] font-mono leading-tight">
-              <span className="text-gray-400">AVG: <span className="font-bold text-blue-600">{formatYValue(statistics.average)}</span></span>
+              <span className="text-gray-400">AVG: <span className="font-bold text-primary-600">{formatYValue(statistics.average)}</span></span>
               <span className="text-gray-400">MAX: <span className="font-bold text-amber-600">{formatYValue(statistics.max)}</span></span>
             </div>
             <span className="text-[9px] text-gray-400 font-mono mt-1">
@@ -296,7 +296,7 @@ export const MiniChart: React.FC<MiniChartProps> = ({
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[9px] font-mono bg-gray-50 p-2 rounded border border-gray-100">
           <div className="flex items-center">
             <span className="text-gray-400 w-8">EQ:</span>
-            <span className="text-blue-600 font-bold truncate ml-1">{trendResult.equation}</span>
+            <span className="text-primary-600 font-bold truncate ml-1">{trendResult.equation}</span>
           </div>
           <div className="flex items-center">
             <span className="text-gray-400 w-8">R²:</span>

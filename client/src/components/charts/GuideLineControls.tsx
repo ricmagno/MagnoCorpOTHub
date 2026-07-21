@@ -52,13 +52,13 @@ export const GuideLineControls: React.FC<GuideLineControlsProps> = ({
       <button
         onClick={onAddHorizontal}
         disabled={horizontalDisabled}
-        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-md hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         title={horizontalDisabled ? `Maximum ${maxHorizontal} horizontal lines` : 'Add horizontal guide line'}
         aria-label="Add horizontal guide line"
       >
         <ArrowLeftRight className="w-3 h-3 mr-1.5" />
         Horizontal
-        <span className="ml-1.5 text-[10px] text-blue-600">
+        <span className="ml-1.5 text-[10px] text-primary-600">
           ({horizontalCount}/{maxHorizontal})
         </span>
       </button>

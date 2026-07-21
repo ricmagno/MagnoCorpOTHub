@@ -16,6 +16,7 @@ import {
   Hash,
   Search
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface Category {
   id: string;
@@ -254,11 +255,12 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
               placeholder={`Search ${activeTab}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
 
-          <button
+          <Button
+            size="sm"
             onClick={() => {
               if (activeTab === 'categories') {
                 setShowCreateCategory(true);
@@ -266,11 +268,11 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                 setShowCreateTag(true);
               }
             }}
-            className="ml-4 inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="ml-4"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add {activeTab === 'categories' ? 'Category' : 'Tag'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -320,7 +322,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => startEditCategory(category)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md"
                       title="Edit Category"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -410,7 +412,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Production Reports"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -423,7 +425,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   onChange={(e) => setCategoryForm(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Optional description"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -447,22 +449,23 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setShowCreateCategory(false);
                   resetCategoryForm();
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleCreateCategory}
                 disabled={!categoryForm.name.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -485,7 +488,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   type="text"
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -497,7 +500,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -521,19 +524,16 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={cancelEdit}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
+              <Button variant="outline" size="sm" onClick={cancelEdit}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleUpdateCategory}
                 disabled={!categoryForm.name.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Update
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -557,7 +557,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                   value={tagForm.name}
                   onChange={(e) => setTagForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., daily, production, quality"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -568,7 +568,7 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
                 <select
                   value={tagForm.category}
                   onChange={(e) => setTagForm(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">No category</option>
                   {categories.map(category => (
@@ -581,22 +581,23 @@ export const ReportCategories: React.FC<ReportCategoriesProps> = ({
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setShowCreateTag(false);
                   resetTagForm();
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleCreateTag}
                 disabled={!tagForm.name.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create
-              </button>
+              </Button>
             </div>
           </div>
         </div>

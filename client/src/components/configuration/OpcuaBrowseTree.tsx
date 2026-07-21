@@ -265,8 +265,8 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
                   onClick={() => handleNavigateInto(node)}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group"
                 >
-                  <Folder className="h-5 w-5 text-blue-500 shrink-0" />
-                  <span className="text-sm font-medium text-gray-900 group-hover:text-blue-700 truncate">
+                  <Folder className="h-5 w-5 text-primary-500 shrink-0" />
+                  <span className="text-sm font-medium text-gray-900 group-hover:text-primary-700 truncate">
                     {nodeLabel(node)}
                   </span>
                   <ChevronRight className="h-4 w-4 text-gray-400 ml-auto shrink-0" />
@@ -279,7 +279,7 @@ export const OpcuaBrowseTree: React.FC<OpcuaBrowseTreeProps> = ({ onSelect, onCl
                   onClick={() => handleSelectVariable(node)}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left group cursor-pointer"
                 >
-                  <Activity className="h-5 w-5 text-blue-500 shrink-0" />
+                  <Activity className="h-5 w-5 text-primary-500 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-900 group-hover:text-primary-700 truncate">
                       {nodeLabel(node)}

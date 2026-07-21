@@ -102,3 +102,25 @@ The `ConfigurationManagement.tsx` tab strip uses a dedicated CSS class, not Tail
 `className={cn("tab-button", configTab === 'my-tab' && "active")}`, styled in
 `ConfigurationManagement.css` (`.tab-button.active` already uses `primary-600`). Every new
 config tab must reuse this exact class; don't add per-tab custom styling here.
+
+## Lint enforcement (added 2026-07-21)
+
+`client/.eslintrc.json` now enforces the rules above (it supersedes the old `eslintConfig`
+block in `package.json`, which has been removed):
+
+- **error** — action-blue classes in `src/components/**` (`bg/border-blue-400…900`,
+  `ring-blue-*`, `peer-checked:bg-blue-*`). Action/brand UI must use `primary-*`.
+  The full `primary` scale (50–950, Tailwind's sky palette) is defined in
+  `tailwind.config.js` — partial scales previously made classes like
+  `hover:bg-primary-700` silently generate no CSS.
+- **warn** — raw `<button>` elements in `src/components/**`. Use the shared `Button`.
+  Two tolerated exceptions, which stay as warnings on purpose:
+  the **toggle switch pattern** above (a raw pill button by design), and
+  **icon-only buttons** (table row actions, close ×, chevrons) until `Button`
+  grows a `size="icon"` variant — don't force those through `Button` with
+  padding overrides.
+
+Semantic blue is exempt and intentional: info banners (`bg-blue-50` + `text-blue-700/800`
+contents, including their icons), the info Toast/ConfirmDialog icons, and "running"
+status indicators. Keep the *contents* of a blue banner blue — don't mix a
+`text-primary-*` icon into a `bg-blue-50` panel.

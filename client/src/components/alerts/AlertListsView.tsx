@@ -318,7 +318,7 @@ export const AlertListsView: React.FC = () => {
                                             <div className="text-sm text-gray-600 line-clamp-2 max-w-xs">{list.description || '-'}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center text-sm font-medium text-gray-900 bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full w-fit">
+                                            <div className="flex items-center text-sm font-medium text-gray-900 bg-primary-50 text-primary-700 px-2.5 py-0.5 rounded-full w-fit">
                                                 {list.members?.length || 0}
                                             </div>
                                         </td>

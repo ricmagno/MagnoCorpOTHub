@@ -59,17 +59,17 @@ function OpcuaNodeRow({
           'flex-1 h-full text-left px-3 text-sm rounded-l-md transition-all',
           isOpcuaTag
             ? 'cursor-default bg-white/50 border border-transparent'
-            : 'hover:bg-blue-50 text-blue-700 bg-white border border-gray-100 shadow-sm hover:border-blue-200'
+            : 'hover:bg-primary-50 text-primary-700 bg-white border border-gray-100 shadow-sm hover:border-primary-200'
         )}
       >
         <div className="flex items-center h-full">
           {isOpcuaTag
             ? <Activity className="h-3.5 w-3.5 mr-2 text-indigo-400 flex-shrink-0" />
-            : <Server className="h-3.5 w-3.5 mr-2 text-blue-500 flex-shrink-0" />
+            : <Server className="h-3.5 w-3.5 mr-2 text-primary-500 flex-shrink-0" />
           }
           <span className={cn(
             "font-medium truncate max-w-[200px]",
-            isOpcuaTag ? "text-gray-700" : "text-blue-700"
+            isOpcuaTag ? "text-gray-700" : "text-primary-700"
           )}>
             {node.displayName}
           </span>

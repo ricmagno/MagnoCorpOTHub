@@ -43,7 +43,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       case 'info':
         return {
           icon: 'text-blue-600',
-          button: 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500',
+          button: 'bg-primary-600 hover:bg-primary-700 focus-visible:ring-primary-500',
         };
     }
   };

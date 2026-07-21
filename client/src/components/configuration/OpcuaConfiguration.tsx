@@ -488,7 +488,7 @@ export const OpcuaConfiguration: React.FC = () => {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleSetLegacyDefault(config)}
-                                                className={cn(config.isLegacyDefault && "text-blue-600")}
+                                                className={cn(config.isLegacyDefault && "text-primary-600")}
                                                 title={config.isLegacyDefault
                                                     ? "Clear legacy default (unqualified opcua: tags stop resolving)"
                                                     : "Set as legacy default (unqualified opcua: tags resolve here)"}

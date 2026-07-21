@@ -323,7 +323,7 @@ export const DataManagement: React.FC = () => {
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <h4 className="text-sm font-bold text-blue-900">Final Confirmation</h4>
-                <p className="text-sm text-blue-700 mt-1">
+                <p className="text-sm text-primary-700 mt-1">
                   Ready to import <strong>{inspectionResult.rowCount.toLocaleString()}</strong> records. 
                   This will perform a bulk insert into the AVEVA Historian <code>History</code> table.
                 </p>

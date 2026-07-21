@@ -6,12 +6,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Full sky scale — components reference primary-200..800 (e.g. the shared
+        // Button's hover:bg-primary-700); missing shades generate no CSS at all.
         primary: {
           50: '#f0f9ff',
           100: '#e0f2fe',
+          200: '#bae6fd',
+          300: '#7dd3fc',
+          400: '#38bdf8',
           500: '#0ea5e9',
           600: '#0284c7',
-          900: '#0c4a6e'
+          700: '#0369a1',
+          800: '#075985',
+          900: '#0c4a6e',
+          950: '#082f49'
         },
         success: '#10b981',
         warning: '#f59e0b',

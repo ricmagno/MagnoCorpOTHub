@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Mail, MessageSquare, Save, FlaskConical, Loader2, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { Button } from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -224,14 +225,10 @@ const EmailTab: React.FC = () => {
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-gray-100">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          <span>{isSaving ? 'Saving…' : 'Save Configuration'}</span>
-        </button>
+        <Button type="submit" size="sm" loading={isSaving}>
+          {!isSaving && <Save className="h-4 w-4 mr-2" />}
+          {isSaving ? 'Saving…' : 'Save Configuration'}
+        </Button>
         <div className="flex items-center space-x-2 w-full sm:w-auto">
           <input
             type="email"
@@ -240,15 +237,18 @@ const EmailTab: React.FC = () => {
             placeholder="Test recipient email"
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-52"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleTest}
-            disabled={isTesting || !testRecipient}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors whitespace-nowrap"
+            loading={isTesting}
+            disabled={!testRecipient}
+            className="whitespace-nowrap"
           >
-            {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-            <span>{isTesting ? 'Testing…' : 'Send Test'}</span>
-          </button>
+            {!isTesting && <FlaskConical className="h-4 w-4 mr-2" />}
+            {isTesting ? 'Testing…' : 'Send Test'}
+          </Button>
         </div>
       </div>
     </form>
@@ -398,14 +398,10 @@ const SmsTab: React.FC = () => {
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-gray-100">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          <span>{isSaving ? 'Saving…' : 'Save Configuration'}</span>
-        </button>
+        <Button type="submit" size="sm" loading={isSaving}>
+          {!isSaving && <Save className="h-4 w-4 mr-2" />}
+          {isSaving ? 'Saving…' : 'Save Configuration'}
+        </Button>
         <div className="flex items-center space-x-2 w-full sm:w-auto">
           <input
             type="tel"
@@ -414,15 +410,18 @@ const SmsTab: React.FC = () => {
             placeholder="+61400000000"
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-44"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleTest}
-            disabled={isTesting || !testRecipient}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors whitespace-nowrap"
+            loading={isTesting}
+            disabled={!testRecipient}
+            className="whitespace-nowrap"
           >
-            {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-            <span>{isTesting ? 'Testing…' : 'Send Test'}</span>
-          </button>
+            {!isTesting && <FlaskConical className="h-4 w-4 mr-2" />}
+            {isTesting ? 'Testing…' : 'Send Test'}
+          </Button>
         </div>
       </div>
     </form>

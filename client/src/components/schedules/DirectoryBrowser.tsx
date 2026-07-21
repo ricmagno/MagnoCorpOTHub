@@ -216,7 +216,7 @@ export const DirectoryBrowser: React.FC<DirectoryBrowserProps> = ({
                   <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                   </svg>
-                  <span className="text-sm font-medium text-gray-900 group-hover:text-blue-700">{dir.name}</span>
+                  <span className="text-sm font-medium text-gray-900 group-hover:text-primary-700">{dir.name}</span>
                   {!dir.isWritable && (
                     <span className="ml-auto text-xs text-red-600 bg-red-50 px-2 py-1 rounded">Read-only</span>
                   )}

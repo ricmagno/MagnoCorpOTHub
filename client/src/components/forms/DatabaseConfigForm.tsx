@@ -301,7 +301,7 @@ export const DatabaseConfigForm: React.FC<DatabaseConfigFormProps> = ({
                   type="checkbox"
                   checked={formData.encrypt}
                   onChange={(e) => handleInputChange('encrypt', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                   disabled={!canModify}
                 />
                 <span className="text-sm font-medium text-gray-700">
@@ -314,7 +314,7 @@ export const DatabaseConfigForm: React.FC<DatabaseConfigFormProps> = ({
                   type="checkbox"
                   checked={formData.trustServerCertificate}
                   onChange={(e) => handleInputChange('trustServerCertificate', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                   disabled={!canModify}
                 />
                 <span className="text-sm font-medium text-gray-700">
@@ -329,7 +329,7 @@ export const DatabaseConfigForm: React.FC<DatabaseConfigFormProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+              className="flex items-center space-x-2 text-sm font-medium text-primary-600 hover:text-primary-500"
               disabled={!canModify}
             >
               <span>{showAdvanced ? 'Hide' : 'Show'} Advanced Settings</span>

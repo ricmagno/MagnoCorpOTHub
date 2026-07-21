@@ -1,0 +1,43 @@
+{
+  "extends": ["react-app", "react-app/jest"],
+  "overrides": [
+    {
+      "files": ["src/components/**/*.tsx"],
+      "excludedFiles": ["src/components/ui/**", "**/__tests__/**"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Literal[value=/(bg|border)-blue-[4-9]00|ring-blue-|peer-checked:bg-blue-/]",
+            "message": "Action UI must use the primary-* palette, not blue-* (client/src/DESIGN_SYSTEM.md). Semantic info surfaces (bg-blue-50 banners, text-blue-* info icons) are exempt by design."
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] TemplateLiteral[quasis.0.value.raw=/(bg|border)-blue-[4-9]00|ring-blue-|peer-checked:bg-blue-/]",
+            "message": "Action UI must use the primary-* palette, not blue-* (client/src/DESIGN_SYSTEM.md)."
+          }
+        ],
+        "no-restricted-globals": ["error"]
+      }
+    },
+    {
+      "files": ["src/components/**/*.tsx"],
+      "excludedFiles": [
+        "src/components/ui/**",
+        "**/__tests__/**"
+      ],
+      "rules": {
+        "react/forbid-elements": [
+          "warn",
+          {
+            "forbid": [
+              {
+                "element": "button",
+                "message": "Use the shared Button component (components/ui/Button) instead of a raw <button> — see client/src/DESIGN_SYSTEM.md. Icon-only buttons pending a Button size='icon' variant are tolerated as warnings."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -230,7 +230,7 @@ export const StatusDashboard: React.FC<StatusDashboardProps> = ({
                 <button
                   onClick={toggleAutoRefresh}
                   className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation ${autoRefreshEnabled
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                    ? 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-gray-400'
                     }`}
                 >
@@ -330,7 +330,7 @@ export const StatusDashboard: React.FC<StatusDashboardProps> = ({
         {loading && !statusData && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+              <RefreshCw className="w-8 h-8 text-primary-600 animate-spin mx-auto mb-4" />
               <p className="text-gray-600">Loading status data...</p>
             </div>
           </div>
