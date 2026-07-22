@@ -1,8 +1,10 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { Pool } from 'pg';
+import sharp from 'sharp';
 import { ScreenshotEmbedder } from '../services/screenshot-embedder';
 import { ScreenshotCaptureService } from '../services/screenshot-capture';
 import { downloadBuffer } from '../services/object-store';
+import { requireAdminToken } from '../middleware/admin-auth';
 
 export function createEmbeddingRouter(
   db: Pool,
@@ -44,6 +46,47 @@ export function createEmbeddingRouter(
       res.status(500).json({ error: String(err?.message ?? err) });
     }
   });
+
+  // os-agent ingest path: agents on thick-client SCADA nodes (no web HMI) POST raw
+  // screen grabs here instead of the URL-driven Puppeteer capture above.
+  router.post(
+    '/screenshots/upload',
+    requireAdminToken,
+    express.raw({ type: 'image/*', limit: '20mb' }),
+    async (req, res) => {
+      const scadaSystemId = String(req.query.scada_system_id ?? '');
+      if (!scadaSystemId) {
+        res.status(400).json({ error: 'scada_system_id query parameter required' });
+        return;
+      }
+      const body = req.body as unknown;
+      if (!Buffer.isBuffer(body) || body.length === 0) {
+        res.status(400).json({ error: 'image body required with an image/* Content-Type' });
+        return;
+      }
+      try {
+        const sys = await db.query(
+          'SELECT 1 FROM historian.scada_systems WHERE id = $1',
+          [scadaSystemId]
+        );
+        if (!sys.rows[0]) {
+          res.status(404).json({ error: `unknown scada_system_id: ${scadaSystemId}` });
+          return;
+        }
+        let png: Buffer;
+        try {
+          png = await sharp(body).png({ compressionLevel: 8 }).toBuffer();
+        } catch {
+          res.status(400).json({ error: 'body is not a decodable image' });
+          return;
+        }
+        const id = await capture.ingest(scadaSystemId, png);
+        res.status(202).json({ screenshot_id: id, status: 'queued' });
+      } catch (err: any) {
+        res.status(500).json({ error: String(err?.message ?? err) });
+      }
+    }
+  );
 
   router.get('/screenshots/:id/similar', async (req, res) => {
     const limit = Math.min(parseInt(String(req.query.limit ?? '10'), 10), 100);

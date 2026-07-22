@@ -11,6 +11,12 @@ CREATE TABLE historian.scada_systems (
     description TEXT,
     enabled BOOLEAN DEFAULT true,
     metadata JSONB,
+    -- 'web' = Puppeteer against the HMI URL; 'os-agent' reserved for thick-client-only sites
+    capture_method TEXT NOT NULL DEFAULT 'web'
+        CHECK (capture_method IN ('web', 'os-agent')),
+    -- post-load render wait override in ms (NULL = service default)
+    capture_settle_ms INTEGER
+        CHECK (capture_settle_ms IS NULL OR capture_settle_ms >= 0),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -149,5 +155,7 @@ CREATE TABLE historian.schema_migrations (
     filename TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ DEFAULT NOW()
 );
-INSERT INTO historian.schema_migrations (filename) VALUES ('002_teve.sql')
+INSERT INTO historian.schema_migrations (filename) VALUES
+    ('002_teve.sql'),
+    ('003_capture_method.sql')
 ON CONFLICT DO NOTHING;
