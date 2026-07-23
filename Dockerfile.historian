@@ -28,10 +28,12 @@ FROM base AS builder
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package*.json ./
 RUN for i in 1 2 3 4 5; do npm ci --legacy-peer-deps && exit 0; echo "npm ci failed (attempt $i/5), retrying..."; sleep 10; done; exit 1
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.docker.json ./
 COPY src ./src
 COPY scripts ./scripts
-RUN npm run build
+# CJS emit for containers — the base tsconfig's ES2022 emit dir-imports crash Node
+# in ESM mode (ERR_UNSUPPORTED_DIR_IMPORT); see tsconfig.docker.json.
+RUN node scripts/generate-build-metadata.js && npx tsc -p tsconfig.docker.json && npx tsc-alias -p tsconfig.docker.json
 
 # --- Stage 2a: production deps for the API image (needs Puppeteer's Chromium for capture) ---
 FROM base AS prod-deps-api

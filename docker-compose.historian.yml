@@ -16,6 +16,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -27,6 +28,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   minio:
     image: minio/minio:latest
@@ -37,6 +39,7 @@ services:
     ports: ["9000:9000", "9001:9001"]
     volumes: [minio_data:/data]
     command: server /data --console-address ":9001"
+    restart: unless-stopped
 
   # One-shot: create the bucket on startup
   minio-init:
@@ -48,6 +51,50 @@ services:
       mc alias set local http://minio:9000 minioadmin minioadmin;
       mc mb --ignore-existing local/historian-data;
       "
+
+  # API + worker as containers so TEVE runs without a dev shell and restarts on
+  # reboot. HISTORIAN_ADMIN_TOKEN is interpolated from .env (gitignored) — compose
+  # fails fast if it's unset rather than starting an API whose auth is disabled.
+  historian-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.historian
+      target: production-api
+    container_name: historian_api
+    environment:
+      HISTORIAN_DATABASE_URL: postgresql://historian:historian_pwd@postgres:5432/historian_db
+      HISTORIAN_S3_ENDPOINT: http://minio:9000
+      HISTORIAN_REDIS_URL: redis://redis:6379
+      HISTORIAN_ADMIN_TOKEN: ${HISTORIAN_ADMIN_TOKEN:?set HISTORIAN_ADMIN_TOKEN in .env}
+    ports: ["3100:3100"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+  historian-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.historian
+      target: production-worker
+    container_name: historian_worker
+    environment:
+      HISTORIAN_DATABASE_URL: postgresql://historian:historian_pwd@postgres:5432/historian_db
+      HISTORIAN_S3_ENDPOINT: http://minio:9000
+      HISTORIAN_REDIS_URL: redis://redis:6379
+    ports: ["3101:3101"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   postgres_data:

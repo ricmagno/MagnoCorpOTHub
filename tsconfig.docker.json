@@ -1,0 +1,10 @@
+{
+  // Docker/production emit: CommonJS instead of the base ES2022. The ESM emit uses
+  // directory imports (e.g. './config'), which Node rejects in ESM mode
+  // (ERR_UNSUPPORTED_DIR_IMPORT) — CJS resolves them fine. Dev (tsx) is unaffected.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node"
+  }
+}
