@@ -5,6 +5,7 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
 import { useScreenshotImage } from '../../hooks/useScreenshotImage';
+import { useScreenshotMetrics } from '../../hooks/useScreenshotMetrics';
 import { teveApi, TeveApiError } from '../../services/teveApi';
 import { TeveSimilarScreenshot } from '../../types/teve';
 
@@ -22,6 +23,31 @@ const ScreenshotThumb: React.FC<{ id: string; alt: string }> = ({ id, alt }) => 
   }
   return (
     <img src={url} alt={alt} loading="lazy" className="aspect-video w-full object-cover bg-gray-100" />
+  );
+};
+
+const MAX_METRIC_ROWS = 3;
+
+/** Tag values historized closest to this screenshot's capture time. */
+const MetricRows: React.FC<{ id: string }> = ({ id }) => {
+  const { metrics } = useScreenshotMetrics(id);
+  if (metrics.length === 0) return null;
+  const shown = metrics.slice(0, MAX_METRIC_ROWS);
+  return (
+    <div className="pt-1 border-t border-gray-100 space-y-0.5">
+      {shown.map((m) => (
+        <div key={`${m.scada_system_id}:${m.tag_name}`} className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-gray-500 truncate">{m.tag_name}</span>
+          <span className="text-[11px] font-mono text-gray-700 whitespace-nowrap">
+            {m.tag_value != null ? m.tag_value.toLocaleString() : '—'}
+            {m.tag_unit ? ` ${m.tag_unit}` : ''}
+          </span>
+        </div>
+      ))}
+      {metrics.length > MAX_METRIC_ROWS && (
+        <p className="text-[10px] text-gray-400">+{metrics.length - MAX_METRIC_ROWS} more tags</p>
+      )}
+    </div>
   );
 };
 
@@ -45,6 +71,7 @@ const ResultGrid: React.FC<{
           <p className="text-[11px] text-gray-500">
             {new Date(r.screenshot.timestamp).toLocaleString()}
           </p>
+          <MetricRows id={r.screenshot.id} />
         </div>
       </button>
     ))}

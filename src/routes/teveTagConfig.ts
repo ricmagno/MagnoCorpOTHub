@@ -3,10 +3,19 @@ import { authenticateToken, requireRole } from '@/middleware/auth';
 import { asyncHandler, createError } from '@/middleware/errorHandler';
 import { teveTagConfigService } from '@/services/teveTagConfigService';
 import { opcuaConfigService } from '@/services/opcuaConfigService';
+import { teveIngestService } from '@/services/teveIngestService';
 import { apiLogger } from '@/utils/logger';
 
 const requireAdmin = requireRole('admin');
 const router = Router();
+
+// Ingest subscriptions are captured at setup time (teveIngestService), so every tag
+// mutation must re-subscribe — otherwise the change only takes effect on the next
+// backend restart or OPC UA reconnect. Fire-and-forget: re-subscribing does OPC UA
+// round-trips and the API response shouldn't wait on them.
+function refreshIngest(): void {
+  teveIngestService.refresh().catch((err) => apiLogger.error('TEVE ingest refresh failed:', err));
+}
 
 const EXPORT_SCHEMA_VERSION = 1;
 
@@ -29,6 +38,7 @@ router.post('/', authenticateToken, requireAdmin, asyncHandler(async (req: Reque
   }
   teveTagConfigService.add(nodeId, tagName, unit, connectionId ?? null);
   apiLogger.info('TEVE historize tag added', { userId: req.user?.id, nodeId, tagName, connectionId });
+  refreshIngest();
   res.status(201).json(teveTagConfigService.list());
 }));
 
@@ -132,6 +142,7 @@ router.post('/import', authenticateToken, requireAdmin, asyncHandler(async (req:
     skipped: warnings.length,
     errors: errors.length,
   });
+  if (imported > 0) refreshIngest();
   res.json({ success: errors.length === 0, imported, skipped: warnings.length, errors, warnings, tags: teveTagConfigService.list() });
 }));
 
@@ -143,6 +154,7 @@ router.patch('/:nodeId', authenticateToken, requireAdmin, asyncHandler(async (re
   if (typeof enabled !== 'boolean') throw createError('enabled must be a boolean', 400);
   teveTagConfigService.setEnabled(nodeId, connectionId, enabled);
   apiLogger.info('TEVE historize tag enabled state changed', { userId: req.user?.id, nodeId, connectionId, enabled });
+  refreshIngest();
   res.json(teveTagConfigService.list());
 }));
 
@@ -152,6 +164,7 @@ router.delete('/:nodeId', authenticateToken, requireAdmin, asyncHandler(async (r
   const connectionId = (req.query.connectionId as string | undefined) ?? null;
   teveTagConfigService.remove(nodeId, connectionId);
   apiLogger.info('TEVE historize tag removed', { userId: req.user?.id, nodeId, connectionId });
+  refreshIngest();
   res.json(teveTagConfigService.list());
 }));
 

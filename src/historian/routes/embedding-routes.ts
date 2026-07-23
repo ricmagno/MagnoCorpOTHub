@@ -88,6 +88,51 @@ export function createEmbeddingRouter(
     }
   );
 
+  // Correlate a screenshot with the historized tag values nearest to its capture time.
+  // Metrics and screenshots can live under different scada_system_ids (OPC UA ingest vs
+  // an os-agent capture of the same plant), so the join is by time only, not by system.
+  router.get('/screenshots/:id/metrics', async (req, res) => {
+    const parsed = parseInt(String(req.query.tolerance_s ?? '300'), 10);
+    const toleranceS = Math.min(Math.max(Number.isNaN(parsed) ? 300 : parsed, 1), 3600);
+    const tags = String(req.query.tags ?? '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    try {
+      const shot = await db.query(
+        'SELECT timestamp FROM historian.screenshots WHERE id = $1',
+        [req.params.id]
+      );
+      const ts = shot.rows[0]?.timestamp;
+      if (!ts) {
+        res.status(404).json({ error: 'screenshot not found' });
+        return;
+      }
+      const params: unknown[] = [req.params.id, `${toleranceS} seconds`];
+      if (tags.length) params.push(tags);
+      const result = await db.query(
+        `SELECT DISTINCT ON (m.scada_system_id, m.tag_name)
+                m.scada_system_id, m.tag_name, m.time, m.tag_value, m.tag_unit, m.tag_status,
+                ROUND(EXTRACT(EPOCH FROM (m.time - s.timestamp))::numeric, 1) AS offset_seconds
+           FROM historian.metrics m
+           JOIN historian.screenshots s ON s.id = $1
+          WHERE m.time BETWEEN s.timestamp - $2::interval AND s.timestamp + $2::interval
+                ${tags.length ? 'AND m.tag_name = ANY($3)' : ''}
+          ORDER BY m.scada_system_id, m.tag_name,
+                   ABS(EXTRACT(EPOCH FROM (m.time - s.timestamp)))`,
+        params
+      );
+      res.json({
+        screenshot_id: req.params.id,
+        timestamp: ts,
+        tolerance_s: toleranceS,
+        metrics: result.rows,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: String(err?.message ?? err) });
+    }
+  });
+
   router.get('/screenshots/:id/similar', async (req, res) => {
     const limit = Math.min(parseInt(String(req.query.limit ?? '10'), 10), 100);
     const maxDistance = parseFloat(String(req.query.max_distance ?? '0.3'));

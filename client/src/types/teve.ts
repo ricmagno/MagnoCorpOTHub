@@ -43,3 +43,15 @@ export interface TeveSimilarAnomaly {
   similarity: number;
   distance: number;
 }
+
+/** One historized tag value correlated to a screenshot's capture time. */
+export interface TeveScreenshotMetric {
+  scada_system_id: string;
+  tag_name: string;
+  time: string;
+  tag_value: number | null;
+  tag_unit: string | null;
+  tag_status: string | null;
+  /** Seconds between the metric sample and the capture (negative = before). */
+  offset_seconds: string;
+}

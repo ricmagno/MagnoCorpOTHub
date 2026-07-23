@@ -11,6 +11,7 @@ import {
   TeveWindowResult,
   TeveAnomaly,
   TeveSimilarAnomaly,
+  TeveScreenshotMetric,
 } from '../types/teve';
 
 class TeveApiError extends Error {
@@ -83,6 +84,16 @@ export const teveApi = {
       { screenshotId, limit }
     );
     return data.similarScreenshots;
+  },
+
+  /** Historized tag values nearest to the screenshot's capture time (joined by time, not system). */
+  async screenshotMetrics(screenshotId: string, toleranceS = 300): Promise<TeveScreenshotMetric[]> {
+    const res = await authedFetch(
+      `/api/historian/screenshots/${encodeURIComponent(screenshotId)}/metrics?tolerance_s=${toleranceS}`
+    );
+    if (!res.ok) throw new TeveApiError(`Failed to load metrics (${res.status})`, res.status);
+    const body = await res.json();
+    return body.metrics ?? [];
   },
 
   async similarMetricWindows(tag: string, at: string, limit = 10): Promise<TeveWindowResult[]> {
